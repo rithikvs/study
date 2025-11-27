@@ -73,18 +73,8 @@ export default function Home() {
           </p>
         </section>
 
-        <section className="mt-10 grid md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-2xl p-6 shadow-glow border border-slate-200">
-            <h2 className="text-lg font-semibold">Set your display name</h2>
-            <input
-              value={userName}
-              onChange={(e) => setUserName(e.target.value)}
-              placeholder="ENTER ROOM NAME"
-              className="mt-3 w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-
-          <div className="bg-white rounded-2xl p-6 shadow-glow border border-slate-200">
+        <section className="mt-10">
+          <div className="bg-white rounded-2xl p-6 shadow-glow border border-slate-200 max-w-2xl mx-auto">
             <h2 className="text-lg font-semibold">Create a new group</h2>
             <input
               value={groupName}
