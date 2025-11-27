@@ -13,8 +13,8 @@ const server = http.createServer(app);
 
 // Allow both local and production origins
 const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:5176',
+  'https://study-2-5wjr.onrender.com:5173',
+  'https://study-2-5wjr.onrender.com:5176',
   process.env.CLIENT_URL, // Add your production frontend URL in environment variables
 ].filter(Boolean);
 
@@ -126,5 +126,5 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`API server running on http://localhost:${PORT}`);
+  console.log(`API server running on https://study-2-5wjr.onrender.com:${PORT}`);
 });
