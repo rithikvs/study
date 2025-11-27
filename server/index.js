@@ -15,7 +15,8 @@ const server = http.createServer(app);
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5176',
-  'https://a7d3a4b.vercel.app', // Your Vercel deployment URL
+  'https://study-fwpj.vercel.app', // Your Vercel deployment URL
+  'https://a7d3a4b.vercel.app',
   process.env.CLIENT_URL, // Add your production frontend URL in environment variables
 ].filter(Boolean);
 
