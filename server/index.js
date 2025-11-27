@@ -127,5 +127,5 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`API server running on https://study-2-5wjr.onrender.com:${PORT}`);
+  console.log(`API server running on http://localhost:${PORT}`);
 });

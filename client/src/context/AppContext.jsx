@@ -25,9 +25,20 @@ export function AppProvider({ children }) {
     let mounted = true;
     (async () => {
       try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          if (mounted) {
+            setAuthUser(null);
+            setAuthLoading(false);
+          }
+          return;
+        }
         const { data } = await api.get('/auth/me');
         if (mounted) setAuthUser(data.user || null);
-      } catch {
+      } catch (err) {
+        console.error('Auth check failed:', err);
+        // If token is invalid, clear it
+        localStorage.removeItem('token');
         if (mounted) setAuthUser(null);
       } finally {
         if (mounted) setAuthLoading(false);
