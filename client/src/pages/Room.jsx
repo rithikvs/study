@@ -136,6 +136,24 @@ export default function Room() {
     }
   }
 
+  async function openFile(fileId, mimeType) {
+    try {
+      const response = await api.get(`/files/download/${fileId}`, {
+        responseType: 'blob',
+      });
+
+      const blob = new Blob([response.data], { type: mimeType });
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      
+      // Clean up after a delay
+      setTimeout(() => window.URL.revokeObjectURL(url), 100);
+    } catch (err) {
+      alert('Failed to open file');
+      console.error(err);
+    }
+  }
+
   async function deleteFile(fileId) {
     if (!confirm('Delete this file?')) return;
     try {
@@ -263,14 +281,23 @@ export default function Room() {
             </>
           ) : (
             <div className="col-span-full bg-white border border-slate-200 rounded-xl p-6">
-              <h2 className="text-lg font-semibold mb-4">Uploaded Files</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Shared Files</h2>
+                <div className="text-sm text-slate-500 bg-blue-50 px-3 py-1 rounded-full">
+                  <svg className="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                  </svg>
+                  All members can access these files
+                </div>
+              </div>
               {files.length === 0 ? (
                 <div className="text-center py-12 text-slate-500">
                   <svg className="w-16 h-16 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                   </svg>
                   <p>No files uploaded yet</p>
-                  <p className="text-sm mt-1">Upload PDF, PPT, or images (max 10MB)</p>
+                  <p className="text-sm mt-1">Upload PDF, PPT, or images to share with everyone (max 10MB)</p>
+                  <p className="text-xs mt-2 text-slate-400">Files are permanently stored in the cloud ☁️</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -295,19 +322,30 @@ export default function Room() {
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-sm truncate">{file.originalName}</p>
                           <p className="text-xs text-slate-500 mt-1">{formatFileSize(file.size)}</p>
-                          <p className="text-xs text-slate-400 mt-1">by {file.uploadedBy?.name}</p>
-                          <div className="flex gap-2 mt-3">
+                          <p className="text-xs text-slate-400 mt-1">
+                            Uploaded by {file.uploadedBy?.name}
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            {new Date(file.createdAt).toLocaleString()}
+                          </p>
+                          <div className="flex flex-wrap gap-2 mt-3">
+                            <button
+                              onClick={() => openFile(file._id, file.mimeType)}
+                              className="text-xs px-3 py-1 bg-green-50 text-green-600 rounded hover:bg-green-100 font-medium"
+                            >
+                              📂 Open
+                            </button>
                             <button
                               onClick={() => downloadFile(file._id, file.originalName)}
                               className="text-xs px-3 py-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100"
                             >
-                              Download
+                              ⬇️ Download
                             </button>
                             <button
                               onClick={() => deleteFile(file._id)}
                               className="text-xs px-3 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100"
                             >
-                              Delete
+                              🗑️ Delete
                             </button>
                           </div>
                         </div>
