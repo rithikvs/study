@@ -66,11 +66,15 @@ export default function Room() {
   }, [roomCode, activeId]);
 
   async function createNote() {
+    const noteName = prompt('Enter note name:');
+    if (!noteName || !noteName.trim()) return;
+    
     try {
-      const { data } = await api.post(`/notes/${roomCode}`, { title: 'Untitled' });
+      const { data } = await api.post(`/notes/${roomCode}`, { title: noteName.trim() });
       // Socket will broadcast and update lists
     } catch (err) {
       console.error(err);
+      alert('Failed to create note');
     }
   }
 
