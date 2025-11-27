@@ -63,18 +63,28 @@ export default function Room() {
       setNotes((prev) => prev.filter((n) => n._id !== noteId));
       if (activeId === noteId) setActiveId(null);
     }
+    function onRoomDeleted({ roomCode: deletedRoomCode, message }) {
+      console.log('💥 Room deleted:', deletedRoomCode);
+      // Remove room from groups list
+      setGroups((prev) => prev.filter((g) => g.roomCode !== deletedRoomCode));
+      // Alert user and redirect to home
+      alert(message || 'This room has been deleted');
+      navigate('/');
+    }
     
     socket.on('note:updated', onUpdated);
     socket.on('note:created', onCreated);
     socket.on('note:deleted', onDeleted);
+    socket.on('room:deleted', onRoomDeleted);
     
     return () => {
       console.log('🚪 Leaving socket room:', roomCode);
       socket.off('note:updated', onUpdated);
       socket.off('note:created', onCreated);
       socket.off('note:deleted', onDeleted);
+      socket.off('room:deleted', onRoomDeleted);
     };
-  }, [roomCode, activeId]);
+  }, [roomCode, activeId, navigate, setGroups]);
 
   function openNoteModal() {
     setNewNoteName('');

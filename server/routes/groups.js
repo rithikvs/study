@@ -3,6 +3,14 @@ const router = express.Router();
 const Group = require('../models/Group');
 const User = require('../models/User');
 
+// Helper to get io instance
+let io;
+function setIO(ioInstance) {
+  io = ioInstance;
+}
+
+router.setIO = setIO;
+
 // Create a group
 router.post('/', async (req, res) => {
   try {
@@ -75,6 +83,12 @@ router.delete('/:roomCode', async (req, res) => {
     // Check if user is the creator
     if (group.createdBy.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Only room creator can delete this room' });
+    }
+
+    // Broadcast room deletion to ALL users in the room BEFORE deleting
+    if (io) {
+      console.log(`🗑️ Broadcasting room deletion: ${roomCode}`);
+      io.to(roomCode).emit('room:deleted', { roomCode, message: 'This room has been deleted by the owner' });
     }
 
     // Delete associated notes and files

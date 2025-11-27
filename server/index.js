@@ -70,6 +70,7 @@ const auth = require('./middleware/auth');
 
 // Pass io instance to routes that need it
 noteRoutes.setIO(io);
+groupRoutes.setIO(io);
 
 app.use('/api/groups', auth, groupRoutes);
 app.use('/api/notes', auth, noteRoutes);
