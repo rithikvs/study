@@ -10,16 +10,35 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
+
+// Allow both local and production origins
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5176',
+  process.env.CLIENT_URL, // Add your production frontend URL in environment variables
+].filter(Boolean);
+
 const io = new Server(server, {
   cors: {
-    origin: ['http://localhost:5173'],
+    origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,
   },
 });
 
 // Middleware
-app.use(cors({ origin: ['http://localhost:5173'], credentials: true }));
+app.use(cors({ 
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true 
+}));
 app.use(express.json());
 app.use(cookieParser());
 
