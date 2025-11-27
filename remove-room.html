@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Old Rooms</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            width: 100%;
+            margin: 10px 0;
+        }
+        button:hover {
+            background: #dc2626;
+        }
+        .success {
+            background: #10b981;
+        }
+        .success:hover {
+            background: #059669;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Clean Old Rooms</h1>
+        <p>This will remove USS3QS and any other old rooms from your browser storage.</p>
+        
+        <button onclick="removeSpecificRoom()">
+            🗑️ Remove USS3QS Only
+        </button>
+        
+        <button onclick="clearAllRooms()" class="success">
+            ✨ Clear All Rooms (Fresh Start)
+        </button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function removeSpecificRoom() {
+            try {
+                const groups = JSON.parse(localStorage.getItem('groups') || '[]');
+                const before = groups.length;
+                
+                // Remove USS3QS
+                const filtered = groups.filter(g => g.roomCode !== 'USS3QS');
+                const after = filtered.length;
+                
+                localStorage.setItem('groups', JSON.stringify(filtered));
+                
+                const result = document.getElementById('result');
+                result.style.display = 'block';
+                result.innerHTML = 
+                    `<strong style="color: green;">✓ Success!</strong><br>` +
+                    `Removed USS3QS from your rooms.<br>` +
+                    `Rooms before: ${before}, Rooms after: ${after}<br><br>` +
+                    `<button onclick="window.location.href='http://localhost:5173'" style="background: #3b82f6; width: auto; padding: 10px 20px;">Go to Homepage</button>`;
+            } catch (err) {
+                showError(err.message);
+            }
+        }
+
+        function clearAllRooms() {
+            if (!confirm('This will remove ALL rooms from your local storage. You can rejoin them later with room codes. Continue?')) {
+                return;
+            }
+            
+            try {
+                const groups = JSON.parse(localStorage.getItem('groups') || '[]');
+                const count = groups.length;
+                
+                // Clear all rooms
+                localStorage.setItem('groups', JSON.stringify([]));
+                
+                const result = document.getElementById('result');
+                result.style.display = 'block';
+                result.innerHTML = 
+                    `<strong style="color: green;">✓ Fresh Start!</strong><br>` +
+                    `Cleared ${count} room(s) from local storage.<br>` +
+                    `Only newly created or joined rooms will appear now.<br><br>` +
+                    `<button onclick="window.location.href='http://localhost:5173'" style="background: #3b82f6; width: auto; padding: 10px 20px;">Go to Homepage</button>`;
+            } catch (err) {
+                showError(err.message);
+            }
+        }
+
+        function showError(message) {
+            const result = document.getElementById('result');
+            result.style.display = 'block';
+            result.innerHTML = `<strong style="color: red;">Error:</strong> ${message}`;
+        }
+    </script>
+</body>
+</html>
