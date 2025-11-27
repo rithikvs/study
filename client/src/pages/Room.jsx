@@ -17,6 +17,8 @@ export default function Room() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState('notes'); // 'notes' or 'files'
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [newNoteName, setNewNoteName] = useState('');
 
   useEffect(() => {
     async function init() {
@@ -65,12 +67,21 @@ export default function Room() {
     };
   }, [roomCode, activeId]);
 
+  function openNoteModal() {
+    setNewNoteName('');
+    setShowNoteModal(true);
+  }
+
   async function createNote() {
-    const noteName = prompt('Enter note name:');
-    if (!noteName || !noteName.trim()) return;
+    if (!newNoteName.trim()) {
+      alert('Please enter a note name');
+      return;
+    }
     
     try {
-      const { data } = await api.post(`/notes/${roomCode}`, { title: noteName.trim() });
+      await api.post(`/notes/${roomCode}`, { title: newNoteName.trim() });
+      setShowNoteModal(false);
+      setNewNoteName('');
       // Socket will broadcast and update lists
     } catch (err) {
       console.error(err);
@@ -225,7 +236,7 @@ export default function Room() {
             )}
           </div>
           <div className="flex gap-2">
-            <button onClick={createNote} className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark">New Note</button>
+            <button onClick={openNoteModal} className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark">New Note</button>
             <label className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 cursor-pointer flex items-center gap-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -413,6 +424,38 @@ export default function Room() {
           )}
         </div>
       </main>
+
+      {/* Create Note Modal */}
+      {showNoteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowNoteModal(false)}>
+          <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-2xl font-bold mb-4 text-slate-800">Create New Note</h2>
+            <input
+              type="text"
+              value={newNoteName}
+              onChange={(e) => setNewNoteName(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && createNote()}
+              placeholder="Enter note name..."
+              className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-lg"
+              autoFocus
+            />
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={createNote}
+                className="flex-1 bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary-dark font-medium text-lg transition"
+              >
+                Create
+              </button>
+              <button
+                onClick={() => setShowNoteModal(false)}
+                className="flex-1 bg-slate-200 text-slate-700 px-6 py-3 rounded-lg hover:bg-slate-300 font-medium text-lg transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
