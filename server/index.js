@@ -68,6 +68,9 @@ const authRoutes = require('./routes/auth');
 const fileRoutes = require('./routes/files');
 const auth = require('./middleware/auth');
 
+// Pass io instance to routes that need it
+noteRoutes.setIO(io);
+
 app.use('/api/groups', auth, groupRoutes);
 app.use('/api/notes', auth, noteRoutes);
 app.use('/api/files', auth, fileRoutes);

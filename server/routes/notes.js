@@ -3,6 +3,14 @@ const router = express.Router();
 const Group = require('../models/Group');
 const Note = require('../models/Note');
 
+// Helper to get io instance
+let io;
+function setIO(ioInstance) {
+  io = ioInstance;
+}
+
+router.setIO = setIO;
+
 // Get notes for a group by room code - ONLY for members
 router.get('/:roomCode', async (req, res) => {
   try {
@@ -45,6 +53,12 @@ router.post('/:roomCode', async (req, res) => {
       createdBy: req.user.id 
     });
     const populatedNote = await Note.findById(note._id).populate('createdBy', 'name');
+    
+    // Broadcast to all users in the room via socket
+    if (io) {
+      io.to(roomCode).emit('note:created', { note: populatedNote });
+    }
+    
     return res.json({ note: populatedNote });
   } catch (err) {
     console.error(err);
@@ -74,7 +88,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const note = await Note.findById(id);
+    const note = await Note.findById(id).populate('group');
     if (!note) {
       return res.status(404).json({ error: 'note not found' });
     }
@@ -82,7 +96,15 @@ router.delete('/:id', async (req, res) => {
     if (note.createdBy && note.createdBy.toString() !== req.user.id) {
       return res.status(403).json({ error: 'Only creator can delete this note' });
     }
+    
+    const roomCode = note.group?.roomCode;
     await Note.findByIdAndDelete(id);
+    
+    // Broadcast deletion to room
+    if (io && roomCode) {
+      io.to(roomCode).emit('note:deleted', { noteId: id });
+    }
+    
     return res.json({ ok: true });
   } catch (err) {
     console.error(err);
