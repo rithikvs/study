@@ -79,7 +79,7 @@ export default function Home() {
             <input
               value={userName}
               onChange={(e) => setUserName(e.target.value)}
-              placeholder="e.g., Arjun, Sara..."
+              placeholder="ENTER ROOM NAME"
               className="mt-3 w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
