@@ -1,119 +1,115 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Clear Old Rooms</title>
+    <title>Removing USS3QS...</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             max-width: 600px;
             margin: 50px auto;
             padding: 20px;
-            background: #f5f5f5;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .container {
             background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
         }
+        h1 { color: #333; margin-bottom: 20px; }
+        .status {
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-size: 18px;
+        }
+        .success { background: #d1fae5; color: #065f46; border: 2px solid #10b981; }
+        .info { background: #dbeafe; color: #1e40af; border: 2px solid #3b82f6; }
         button {
             padding: 15px 30px;
             font-size: 16px;
             cursor: pointer;
-            background: #ef4444;
+            background: #3b82f6;
             color: white;
             border: none;
             border-radius: 8px;
-            width: 100%;
-            margin: 10px 0;
-        }
-        button:hover {
-            background: #dc2626;
-        }
-        .success {
-            background: #10b981;
-        }
-        .success:hover {
-            background: #059669;
-        }
-        #result {
             margin-top: 20px;
-            padding: 15px;
-            background: #f0f0f0;
-            border-radius: 4px;
-            display: none;
+        }
+        button:hover { background: #2563eb; }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🧹 Clean Old Rooms</h1>
-        <p>This will remove USS3QS and any other old rooms from your browser storage.</p>
-        
-        <button onclick="removeSpecificRoom()">
-            🗑️ Remove USS3QS Only
-        </button>
-        
-        <button onclick="clearAllRooms()" class="success">
-            ✨ Clear All Rooms (Fresh Start)
-        </button>
-        
+        <h1>🗑️ Removing Room USS3QS</h1>
+        <div class="spinner" id="spinner"></div>
         <div id="result"></div>
     </div>
 
     <script>
-        function removeSpecificRoom() {
-            try {
-                const groups = JSON.parse(localStorage.getItem('groups') || '[]');
-                const before = groups.length;
-                
-                // Remove USS3QS
-                const filtered = groups.filter(g => g.roomCode !== 'USS3QS');
-                const after = filtered.length;
-                
-                localStorage.setItem('groups', JSON.stringify(filtered));
-                
-                const result = document.getElementById('result');
-                result.style.display = 'block';
-                result.innerHTML = 
-                    `<strong style="color: green;">✓ Success!</strong><br>` +
-                    `Removed USS3QS from your rooms.<br>` +
-                    `Rooms before: ${before}, Rooms after: ${after}<br><br>` +
-                    `<button onclick="window.location.href='http://localhost:5173'" style="background: #3b82f6; width: auto; padding: 10px 20px;">Go to Homepage</button>`;
-            } catch (err) {
-                showError(err.message);
-            }
-        }
-
-        function clearAllRooms() {
-            if (!confirm('This will remove ALL rooms from your local storage. You can rejoin them later with room codes. Continue?')) {
-                return;
-            }
-            
-            try {
-                const groups = JSON.parse(localStorage.getItem('groups') || '[]');
-                const count = groups.length;
-                
-                // Clear all rooms
-                localStorage.setItem('groups', JSON.stringify([]));
-                
-                const result = document.getElementById('result');
-                result.style.display = 'block';
-                result.innerHTML = 
-                    `<strong style="color: green;">✓ Fresh Start!</strong><br>` +
-                    `Cleared ${count} room(s) from local storage.<br>` +
-                    `Only newly created or joined rooms will appear now.<br><br>` +
-                    `<button onclick="window.location.href='http://localhost:5173'" style="background: #3b82f6; width: auto; padding: 10px 20px;">Go to Homepage</button>`;
-            } catch (err) {
-                showError(err.message);
-            }
-        }
-
-        function showError(message) {
-            const result = document.getElementById('result');
-            result.style.display = 'block';
-            result.innerHTML = `<strong style="color: red;">Error:</strong> ${message}`;
-        }
+        // Automatically remove USS3QS on page load
+        window.onload = function() {
+            setTimeout(() => {
+                try {
+                    const groups = JSON.parse(localStorage.getItem('groups') || '[]');
+                    const before = groups.length;
+                    
+                    // Remove USS3QS and any old rooms
+                    const filtered = groups.filter(g => g.roomCode !== 'USS3QS');
+                    const removed = before - filtered.length;
+                    
+                    localStorage.setItem('groups', JSON.stringify(filtered));
+                    
+                    // Hide spinner
+                    document.getElementById('spinner').style.display = 'none';
+                    
+                    const result = document.getElementById('result');
+                    
+                    if (removed > 0) {
+                        result.innerHTML = 
+                            `<div class="status success">` +
+                            `<strong>✓ Successfully Removed!</strong><br><br>` +
+                            `Room USS3QS has been permanently removed.<br>` +
+                            `Total rooms cleared: ${removed}<br>` +
+                            `Remaining rooms: ${filtered.length}<br><br>` +
+                            `USS3QS will not appear anywhere on your website anymore.` +
+                            `</div>` +
+                            `<button onclick="window.location.href='http://localhost:5173'">Go to Homepage</button>`;
+                    } else {
+                        result.innerHTML = 
+                            `<div class="status info">` +
+                            `<strong>✓ Already Clean!</strong><br><br>` +
+                            `USS3QS was not found in your storage.<br>` +
+                            `Your website is clean - only new rooms will appear.` +
+                            `</div>` +
+                            `<button onclick="window.location.href='http://localhost:5173'">Go to Homepage</button>`;
+                    }
+                } catch (err) {
+                    document.getElementById('spinner').style.display = 'none';
+                    document.getElementById('result').innerHTML = 
+                        `<div class="status" style="background: #fee2e2; color: #991b1b; border: 2px solid #ef4444;">` +
+                        `<strong>Error:</strong> ${err.message}` +
+                        `</div>`;
+                }
+            }, 1000);
+        };
     </script>
 </body>
 </html>
