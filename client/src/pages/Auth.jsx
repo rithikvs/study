@@ -31,7 +31,9 @@ export default function Auth() {
       }
       // Set user in context
       setAuthUser(data.user);
-      navigate('/dashboard');
+      
+      // Reload the page to fetch user's rooms from database
+      window.location.href = '/';
     } catch (err) {
       const msg = err?.response?.data?.message || 'Auth failed';
       alert(msg);

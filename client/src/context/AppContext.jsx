@@ -31,12 +31,27 @@ export function AppProvider({ children }) {
         
         // Get user info
         const { data } = await api.get('/auth/me');
-        if (mounted) setAuthUser(data.user || null);
+        if (!mounted) return;
+        
+        if (!data.user) {
+          // Token is invalid
+          localStorage.removeItem('token');
+          setAuthUser(null);
+          setGroups([]);
+          setAuthLoading(false);
+          return;
+        }
+        
+        setAuthUser(data.user);
         
         // Get user's rooms from database
-        if (data.user) {
+        try {
           const roomsRes = await api.get('/auth/my-rooms');
           if (mounted) setGroups(roomsRes.data.groups || []);
+        } catch (roomErr) {
+          console.error('Failed to fetch rooms:', roomErr);
+          // Don't fail auth if rooms fetch fails
+          if (mounted) setGroups([]);
         }
       } catch (err) {
         console.error('Auth check failed:', err);
