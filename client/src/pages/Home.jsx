@@ -16,7 +16,13 @@ export default function Home() {
     try {
       setLoadingCreate(true);
       const { data } = await api.post('/groups', { name: groupName.trim() });
-      setGroups([{ name: data.group.name, roomCode: data.group.roomCode }, ...groups]);
+      // Add to local state
+      setGroups([{ 
+        _id: data.group._id,
+        name: data.group.name, 
+        roomCode: data.group.roomCode,
+        createdBy: data.group.createdBy
+      }, ...groups]);
       navigate(`/room/${data.group.roomCode}`);
     } catch (err) {
       const msg = err?.response?.data?.message || 'Failed to create group';
@@ -31,8 +37,16 @@ export default function Home() {
     try {
       setLoadingJoin(true);
       const { data } = await api.post('/groups/join', { roomCode: joinCode.trim().toUpperCase() });
+      // Add to local state if not already present
       const exists = groups.some((g) => g.roomCode === data.group.roomCode);
-      if (!exists) setGroups([{ name: data.group.name, roomCode: data.group.roomCode }, ...groups]);
+      if (!exists) {
+        setGroups([{ 
+          _id: data.group._id,
+          name: data.group.name, 
+          roomCode: data.group.roomCode,
+          createdBy: data.group.createdBy
+        }, ...groups]);
+      }
       navigate(`/room/${data.group.roomCode}`);
     } catch (err) {
       const msg = err?.response?.data?.message || 'Invalid room code';

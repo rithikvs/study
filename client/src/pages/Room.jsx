@@ -31,15 +31,6 @@ export default function Room() {
       } catch (err) {
         console.error('Room access error:', err);
         
-        // Remove this room from localStorage
-        const groups = JSON.parse(localStorage.getItem('groups') || '[]');
-        const filtered = groups.filter(g => g.roomCode !== roomCode);
-        if (filtered.length !== groups.length) {
-          localStorage.setItem('groups', JSON.stringify(filtered));
-          console.log(`Removed inaccessible room ${roomCode} from storage`);
-          setGroups(filtered);
-        }
-        
         const errorMsg = err?.response?.data?.message || err?.response?.data?.error;
         if (err?.response?.status === 403) {
           alert(`Access denied to room ${roomCode}.\n\nYou must enter the room code to join this room first.`);
@@ -50,7 +41,7 @@ export default function Room() {
       }
     }
     init();
-  }, [roomCode, navigate, setGroups]);
+  }, [roomCode, navigate]);
 
   useEffect(() => {
     function onUpdated({ note }) {
@@ -194,7 +185,7 @@ export default function Room() {
     if (!confirm('Delete this entire room? This will remove all notes and files permanently!')) return;
     try {
       await api.delete(`/groups/${roomCode}`);
-      // Update local groups list
+      // Update local groups list - remove this room
       setGroups((prev) => prev.filter((g) => g.roomCode !== roomCode));
       alert('Room deleted successfully');
       navigate('/');

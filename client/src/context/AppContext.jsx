@@ -5,10 +5,7 @@ const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
   const [userName, setUserName] = useState(() => localStorage.getItem('userName') || '');
-  const [groups, setGroups] = useState(() => {
-    const saved = localStorage.getItem('groups');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [groups, setGroups] = useState([]);
 
   const [authUser, setAuthUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -17,10 +14,7 @@ export function AppProvider({ children }) {
     localStorage.setItem('userName', userName || '');
   }, [userName]);
 
-  useEffect(() => {
-    localStorage.setItem('groups', JSON.stringify(groups || []));
-  }, [groups]);
-
+  // Fetch user data and their rooms from database
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -29,17 +23,29 @@ export function AppProvider({ children }) {
         if (!token) {
           if (mounted) {
             setAuthUser(null);
+            setGroups([]);
             setAuthLoading(false);
           }
           return;
         }
+        
+        // Get user info
         const { data } = await api.get('/auth/me');
         if (mounted) setAuthUser(data.user || null);
+        
+        // Get user's rooms from database
+        if (data.user) {
+          const roomsRes = await api.get('/auth/my-rooms');
+          if (mounted) setGroups(roomsRes.data.groups || []);
+        }
       } catch (err) {
         console.error('Auth check failed:', err);
         // If token is invalid, clear it
         localStorage.removeItem('token');
-        if (mounted) setAuthUser(null);
+        if (mounted) {
+          setAuthUser(null);
+          setGroups([]);
+        }
       } finally {
         if (mounted) setAuthLoading(false);
       }

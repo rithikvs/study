@@ -54,4 +54,27 @@ router.get('/me', async (req, res) => {
   }
 });
 
+// Get user's joined rooms from database
+router.get('/my-rooms', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    const jwtToken = authHeader.substring(7);
+    const payload = jwt.verify(jwtToken, process.env.JWT_SECRET || 'dev-secret');
+    
+    const Group = require('../models/Group');
+    // Find all groups where user is a member
+    const groups = await Group.find({ members: payload.id })
+      .select('name roomCode createdBy')
+      .sort({ createdAt: -1 });
+    
+    return res.json({ groups });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'server error' });
+  }
+});
+
 module.exports = router;

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clean Old Storage</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        h1 { color: #333; margin-bottom: 20px; }
+        button {
+            padding: 15px 30px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        button:hover { background: #2563eb; }
+        .status {
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-size: 16px;
+        }
+        .success { background: #d1fae5; color: #065f46; border: 2px solid #10b981; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Clean Old Room Storage</h1>
+        <p>This will remove old localStorage groups data.</p>
+        <p>Rooms will now be loaded from the database instead.</p>
+        <button onclick="cleanStorage()">Clean Storage</button>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function cleanStorage() {
+            try {
+                // Remove old groups from localStorage
+                localStorage.removeItem('groups');
+                
+                const result = document.getElementById('result');
+                result.innerHTML = 
+                    `<div class="status success">` +
+                    `<strong>✓ Storage Cleaned!</strong><br><br>` +
+                    `Old room data removed from localStorage.<br>` +
+                    `Rooms will now be loaded from the database.<br><br>` +
+                    `Only rooms you've joined will be visible.` +
+                    `</div>` +
+                    `<button onclick="window.location.href='http://localhost:5173'">Go to Website</button>`;
+            } catch (err) {
+                document.getElementById('result').innerHTML = 
+                    `<div class="status" style="background: #fee2e2; color: #991b1b;">` +
+                    `<strong>Error:</strong> ${err.message}` +
+                    `</div>`;
+            }
+        }
+    </script>
+</body>
+</html>
