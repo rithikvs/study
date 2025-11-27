@@ -29,12 +29,23 @@ export default function Room() {
         setFiles(fRes.data.files);
         socket.emit('join', { roomCode });
       } catch (err) {
-        alert('Room not found');
-        console.error(err);
+        console.error('Room not found:', err);
+        
+        // Remove this room from localStorage if it doesn't exist
+        const groups = JSON.parse(localStorage.getItem('groups') || '[]');
+        const filtered = groups.filter(g => g.roomCode !== roomCode);
+        if (filtered.length !== groups.length) {
+          localStorage.setItem('groups', JSON.stringify(filtered));
+          console.log(`Removed non-existent room ${roomCode} from storage`);
+          setGroups(filtered);
+        }
+        
+        alert(`Room ${roomCode} not found. It may have been deleted.`);
+        navigate('/');
       }
     }
     init();
-  }, [roomCode]);
+  }, [roomCode, navigate, setGroups]);
 
   useEffect(() => {
     function onUpdated({ note }) {
