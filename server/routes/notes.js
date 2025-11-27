@@ -3,12 +3,18 @@ const router = express.Router();
 const Group = require('../models/Group');
 const Note = require('../models/Note');
 
-// Get notes for a group by room code
+// Get notes for a group by room code - ONLY for members
 router.get('/:roomCode', async (req, res) => {
   try {
     const { roomCode } = req.params;
     const group = await Group.findOne({ roomCode });
     if (!group) return res.status(404).json({ error: 'group not found' });
+    
+    // Check if user is a member
+    if (!group.members.includes(req.user.id)) {
+      return res.status(403).json({ error: 'Access denied. Join this room first.' });
+    }
+    
     const notes = await Note.find({ group: group._id })
       .populate('createdBy', 'name')
       .sort({ updatedAt: -1 });
@@ -19,13 +25,19 @@ router.get('/:roomCode', async (req, res) => {
   }
 });
 
-// Create a note in a group
+// Create a note in a group - ONLY for members
 router.post('/:roomCode', async (req, res) => {
   try {
     const { roomCode } = req.params;
     const { title } = req.body;
     const group = await Group.findOne({ roomCode });
     if (!group) return res.status(404).json({ error: 'group not found' });
+    
+    // Check if user is a member
+    if (!group.members.includes(req.user.id)) {
+      return res.status(403).json({ error: 'Access denied. Join this room first.' });
+    }
+    
     const note = await Note.create({ 
       group: group._id, 
       title: title || 'Untitled', 

@@ -45,12 +45,19 @@ router.post('/join', async (req, res) => {
   }
 });
 
-// Get group by room code
+// Get group by room code - ONLY if user is a member
 router.get('/:roomCode', async (req, res) => {
   try {
     const { roomCode } = req.params;
     const group = await Group.findOne({ roomCode }).populate('members', 'name email');
     if (!group) return res.status(404).json({ message: 'group not found' });
+    
+    // Check if user is a member of this group
+    const isMember = group.members.some(member => member._id.toString() === req.user.id);
+    if (!isMember) {
+      return res.status(403).json({ message: 'Access denied. You must join this room first.' });
+    }
+    
     return res.json({ group });
   } catch (err) {
     console.error(err);

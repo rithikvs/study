@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import api from '../lib/api';
@@ -11,29 +11,6 @@ export default function Home() {
   const [joinCode, setJoinCode] = useState('');
   const [loadingCreate, setLoadingCreate] = useState(false);
   const [loadingJoin, setLoadingJoin] = useState(false);
-
-  // Clean up any invalid rooms from localStorage on mount
-  useEffect(() => {
-    async function validateRooms() {
-      if (!authUser || groups.length === 0) return;
-      
-      const validGroups = [];
-      for (const group of groups) {
-        try {
-          await api.get(`/groups/${group.roomCode}`);
-          validGroups.push(group);
-        } catch (err) {
-          console.log(`Removing invalid room ${group.roomCode} from storage`);
-        }
-      }
-      
-      if (validGroups.length !== groups.length) {
-        setGroups(validGroups);
-        localStorage.setItem('groups', JSON.stringify(validGroups));
-      }
-    }
-    validateRooms();
-  }, []); // Run once on mount
 
   async function createGroup() {
     try {

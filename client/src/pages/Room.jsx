@@ -29,18 +29,23 @@ export default function Room() {
         setFiles(fRes.data.files);
         socket.emit('join', { roomCode });
       } catch (err) {
-        console.error('Room not found:', err);
+        console.error('Room access error:', err);
         
-        // Remove this room from localStorage if it doesn't exist
+        // Remove this room from localStorage
         const groups = JSON.parse(localStorage.getItem('groups') || '[]');
         const filtered = groups.filter(g => g.roomCode !== roomCode);
         if (filtered.length !== groups.length) {
           localStorage.setItem('groups', JSON.stringify(filtered));
-          console.log(`Removed non-existent room ${roomCode} from storage`);
+          console.log(`Removed inaccessible room ${roomCode} from storage`);
           setGroups(filtered);
         }
         
-        alert(`Room ${roomCode} not found. It may have been deleted.`);
+        const errorMsg = err?.response?.data?.message || err?.response?.data?.error;
+        if (err?.response?.status === 403) {
+          alert(`Access denied to room ${roomCode}.\n\nYou must enter the room code to join this room first.`);
+        } else {
+          alert(`Room ${roomCode} not found or has been deleted.`);
+        }
         navigate('/');
       }
     }

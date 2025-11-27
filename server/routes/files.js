@@ -31,7 +31,7 @@ const upload = multer({
   },
 });
 
-// Upload file to a room
+// Upload file to a room - ONLY for members
 router.post('/:roomCode/upload', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
@@ -42,6 +42,11 @@ router.post('/:roomCode/upload', upload.single('file'), async (req, res) => {
     const group = await Group.findOne({ roomCode });
     if (!group) {
       return res.status(404).json({ message: 'Group not found' });
+    }
+    
+    // Check if user is a member
+    if (!group.members.includes(req.user.id)) {
+      return res.status(403).json({ message: 'Access denied. Join this room first.' });
     }
 
     // Create file document
@@ -73,13 +78,18 @@ router.post('/:roomCode/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-// Get all files in a room
+// Get all files in a room - ONLY for members
 router.get('/:roomCode', async (req, res) => {
   try {
     const { roomCode } = req.params;
     const group = await Group.findOne({ roomCode });
     if (!group) {
       return res.status(404).json({ message: 'Group not found' });
+    }
+    
+    // Check if user is a member
+    if (!group.members.includes(req.user.id)) {
+      return res.status(403).json({ message: 'Access denied. Join this room first.' });
     }
 
     const files = await File.find({ group: group._id })
@@ -94,13 +104,19 @@ router.get('/:roomCode', async (req, res) => {
   }
 });
 
-// Download a specific file
+// Download a specific file - ONLY for room members
 router.get('/download/:fileId', async (req, res) => {
   try {
     const { fileId } = req.params;
-    const file = await File.findById(fileId);
+    const file = await File.findById(fileId).populate('group');
     if (!file) {
       return res.status(404).json({ message: 'File not found' });
+    }
+    
+    // Check if user is a member of the room
+    const group = await Group.findById(file.group);
+    if (!group || !group.members.includes(req.user.id)) {
+      return res.status(403).json({ message: 'Access denied. Join this room first.' });
     }
 
     res.set({
