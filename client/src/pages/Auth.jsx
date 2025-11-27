@@ -25,11 +25,12 @@ export default function Auth() {
         ({ data } = await api.post('/auth/login', { email, password }));
         alert(`Welcome back, ${data.user.name}`);
       }
-      // Ensure context has the logged-in user
-      try {
-        const me = await api.get('/auth/me');
-        setAuthUser(me.data.user || null);
-      } catch {}
+      // Store token in localStorage
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
+      // Set user in context
+      setAuthUser(data.user);
       navigate('/dashboard');
     } catch (err) {
       const msg = err?.response?.data?.message || 'Auth failed';

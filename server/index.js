@@ -13,8 +13,9 @@ const server = http.createServer(app);
 
 // Allow both local and production origins
 const allowedOrigins = [
-  'https://study-2-5wjr.onrender.com:5173',
-  'https://study-2-5wjr.onrender.com:5176',
+  'http://localhost:5173',
+  'http://localhost:5176',
+  'https://a7d3a4b.vercel.app', // Your Vercel deployment URL
   process.env.CLIENT_URL, // Add your production frontend URL in environment variables
 ].filter(Boolean);
 
