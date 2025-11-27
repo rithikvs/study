@@ -75,8 +75,16 @@ router.put('/:id', async (req, res) => {
       id,
       { title, content, updatedAt: new Date() },
       { new: true }
-    );
+    ).populate('group').populate('createdBy', 'name');
+    
     if (!note) return res.status(404).json({ error: 'note not found' });
+    
+    // Broadcast update to all users in the room
+    const roomCode = note.group?.roomCode;
+    if (io && roomCode) {
+      io.to(roomCode).emit('note:updated', { note });
+    }
+    
     return res.json({ note });
   } catch (err) {
     console.error(err);

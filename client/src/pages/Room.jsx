@@ -29,7 +29,6 @@ export default function Room() {
         setNotes(nRes.data.notes);
         const fRes = await api.get(`/files/${roomCode}`);
         setFiles(fRes.data.files);
-        socket.emit('join', { roomCode });
       } catch (err) {
         console.error('Room access error:', err);
         
@@ -46,21 +45,31 @@ export default function Room() {
   }, [roomCode, navigate]);
 
   useEffect(() => {
+    // Join the room via socket
+    console.log('🔌 Joining socket room:', roomCode);
+    socket.emit('join', { roomCode });
+    
     function onUpdated({ note }) {
+      console.log('📝 Note updated:', note);
       setNotes((prev) => prev.map((n) => (n._id === note._id ? note : n)));
     }
     function onCreated({ note }) {
+      console.log('✨ Note created:', note);
       setNotes((prev) => [note, ...prev]);
       setActiveId(note._id);
     }
     function onDeleted({ noteId }) {
+      console.log('🗑️ Note deleted:', noteId);
       setNotes((prev) => prev.filter((n) => n._id !== noteId));
       if (activeId === noteId) setActiveId(null);
     }
+    
     socket.on('note:updated', onUpdated);
     socket.on('note:created', onCreated);
     socket.on('note:deleted', onDeleted);
+    
     return () => {
+      console.log('🚪 Leaving socket room:', roomCode);
       socket.off('note:updated', onUpdated);
       socket.off('note:created', onCreated);
       socket.off('note:deleted', onDeleted);
@@ -103,9 +112,10 @@ export default function Room() {
     try {
       setSaving(true);
       await api.put(`/notes/${activeNote._id}`, { title: activeNote.title, content: activeNote.content });
-      socket.emit('note:update', { noteId: activeNote._id, content: activeNote.content, roomCode });
+      // Server will broadcast the update via socket to all users
     } catch (err) {
       console.error(err);
+      alert('Failed to save note');
     } finally {
       setSaving(false);
     }

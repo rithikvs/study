@@ -82,18 +82,20 @@ app.get('/', (req, res) => {
 
 // Socket.IO logic
 io.on('connection', (socket) => {
-  console.log('Socket connected:', socket.id);
+  console.log('✅ Socket connected:', socket.id);
 
   socket.on('join', async ({ roomCode }) => {
     if (!roomCode) return;
     socket.join(roomCode);
+    const roomSize = io.sockets.adapter.rooms.get(roomCode)?.size || 0;
+    console.log(`🔌 Socket ${socket.id} joined room ${roomCode} (${roomSize} users)`);
     io.to(roomCode).emit('presence', { socketId: socket.id, joined: true });
-    console.log(`Socket ${socket.id} joined room ${roomCode}`);
   });
 
   socket.on('note:update', async ({ noteId, content, roomCode }) => {
     try {
       if (!noteId || roomCode == null) return;
+      console.log(`📝 Broadcasting note:update for ${noteId} to room ${roomCode}`);
       const note = await Note.findByIdAndUpdate(
         noteId,
         { content, updatedAt: new Date() },
