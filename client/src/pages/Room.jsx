@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import api from '../lib/api';
 import socket from '../lib/socket';
+import { useApp } from '../context/AppContext';
 
 export default function Room() {
   const { roomCode } = useParams();
+  const navigate = useNavigate();
+  const { authUser, setGroups } = useApp();
   const [group, setGroup] = useState(null);
   const [notes, setNotes] = useState([]);
   const [files, setFiles] = useState([]);
@@ -171,6 +174,22 @@ export default function Room() {
     return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
   }
 
+  async function deleteRoom() {
+    if (!confirm('Delete this entire room? This will remove all notes and files permanently!')) return;
+    try {
+      await api.delete(`/groups/${roomCode}`);
+      // Update local groups list
+      setGroups((prev) => prev.filter((g) => g.roomCode !== roomCode));
+      alert('Room deleted successfully');
+      navigate('/');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Delete failed');
+      console.error(err);
+    }
+  }
+
+  const isRoomCreator = group && authUser && group.createdBy === authUser.id;
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-slate-100">
       <Navbar />
@@ -203,6 +222,17 @@ export default function Room() {
               {uploading ? 'Uploading...' : 'Upload File'}
               <input type="file" onChange={handleFileUpload} className="hidden" disabled={uploading} accept=".pdf,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.webp" />
             </label>
+            {isRoomCreator && (
+              <button 
+                onClick={deleteRoom} 
+                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Delete Room
+              </button>
+            )}
           </div>
         </div>
 
@@ -235,8 +265,20 @@ export default function Room() {
                     className={`w-full text-left px-3 py-2 rounded-lg border ${activeId === n._id ? 'border-primary bg-slate-50' : 'border-slate-200 hover:bg-slate-50'}`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-medium">{n.title || 'Untitled'}</span>
-                      <button onClick={(e) => { e.stopPropagation(); deleteNote(n._id); }} className="text-xs text-red-600">Delete</button>
+                      <div className="flex-1">
+                        <span className="font-medium">{n.title || 'Untitled'}</span>
+                        {n.createdBy && (
+                          <span className="text-xs text-slate-400 ml-2">by {n.createdBy.name}</span>
+                        )}
+                      </div>
+                      {authUser && n.createdBy && n.createdBy._id === authUser.id && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); deleteNote(n._id); }} 
+                          className="text-xs text-red-600 hover:bg-red-50 px-2 py-1 rounded"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                     <span className="text-xs text-slate-500">Updated {new Date(n.updatedAt).toLocaleString()}</span>
                   </button>
@@ -341,12 +383,14 @@ export default function Room() {
                             >
                               ⬇️ Download
                             </button>
-                            <button
-                              onClick={() => deleteFile(file._id)}
-                              className="text-xs px-3 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100"
-                            >
-                              🗑️ Delete
-                            </button>
+                            {authUser && file.uploadedBy && file.uploadedBy._id === authUser.id && (
+                              <button
+                                onClick={() => deleteFile(file._id)}
+                                className="text-xs px-3 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100"
+                              >
+                                🗑️ Delete
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>

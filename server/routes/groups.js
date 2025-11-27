@@ -58,4 +58,38 @@ router.get('/:roomCode', async (req, res) => {
   }
 });
 
+// Delete a group - only creator can delete
+router.delete('/:roomCode', async (req, res) => {
+  try {
+    const { roomCode } = req.params;
+    const group = await Group.findOne({ roomCode });
+    if (!group) return res.status(404).json({ message: 'group not found' });
+    
+    // Check if user is the creator
+    if (group.createdBy.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Only room creator can delete this room' });
+    }
+
+    // Delete associated notes and files
+    const Note = require('../models/Note');
+    const File = require('../models/File');
+    await Note.deleteMany({ group: group._id });
+    await File.deleteMany({ group: group._id });
+    
+    // Remove group from all users
+    await User.updateMany(
+      { groups: group._id },
+      { $pull: { groups: group._id } }
+    );
+    
+    // Delete the group
+    await Group.findByIdAndDelete(group._id);
+    
+    return res.json({ message: 'Room deleted successfully' });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'server error' });
+  }
+});
+
 module.exports = router;

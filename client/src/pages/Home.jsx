@@ -112,6 +112,36 @@ export default function Home() {
             <Link to="/auth" className="ml-2 text-primary underline">Go to Sign In</Link>
           </div>
         )}
+
+        {/* Show user's joined rooms */}
+        {authUser && groups.length > 0 && (
+          <section className="mt-10">
+            <h2 className="text-2xl font-bold mb-4">Your Rooms</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {groups.map((group) => (
+                <Link
+                  key={group.roomCode}
+                  to={`/room/${group.roomCode}`}
+                  className="bg-white rounded-xl p-5 shadow-glow border border-slate-200 hover:shadow-lg transition group"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg group-hover:text-primary transition">
+                        {group.name}
+                      </h3>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Code: <span className="font-mono font-bold text-primary">{group.roomCode}</span>
+                      </p>
+                    </div>
+                    <svg className="w-5 h-5 text-slate-400 group-hover:text-primary transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
       </main>
     </div>
   );

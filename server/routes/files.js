@@ -116,19 +116,18 @@ router.get('/download/:fileId', async (req, res) => {
   }
 });
 
-// Delete a file - any room member can delete
+// Delete a file - only uploader can delete
 router.delete('/:fileId', async (req, res) => {
   try {
     const { fileId } = req.params;
-    const file = await File.findById(fileId).populate('group');
+    const file = await File.findById(fileId);
     if (!file) {
       return res.status(404).json({ message: 'File not found' });
     }
 
-    // Verify user is a member of the group
-    const group = await Group.findById(file.group._id);
-    if (!group.members.includes(req.user.id)) {
-      return res.status(403).json({ message: 'Not authorized - not a room member' });
+    // Check if user is the owner
+    if (file.uploadedBy.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Only uploader can delete this file' });
     }
 
     await File.findByIdAndDelete(fileId);
