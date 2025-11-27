@@ -224,7 +224,6 @@ export default function Room() {
                   </button>
                 </li>
               ))}
-                  ))}
                 </ul>
               </aside>
 
