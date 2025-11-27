@@ -65,10 +65,12 @@ const Note = require('./models/Note');
 const groupRoutes = require('./routes/groups');
 const noteRoutes = require('./routes/notes');
 const authRoutes = require('./routes/auth');
+const fileRoutes = require('./routes/files');
 const auth = require('./middleware/auth');
 
 app.use('/api/groups', auth, groupRoutes);
 app.use('/api/notes', auth, noteRoutes);
+app.use('/api/files', auth, fileRoutes);
 app.use('/api/auth', authRoutes);
 
 app.get('/', (req, res) => {
