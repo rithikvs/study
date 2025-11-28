@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import FileViewer from '../components/FileViewer';
 import api from '../lib/api';
 import socket from '../lib/socket';
 import { useApp } from '../context/AppContext';
@@ -19,6 +20,7 @@ export default function Room() {
   const [activeTab, setActiveTab] = useState('notes'); // 'notes' or 'files'
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [newNoteName, setNewNoteName] = useState('');
+  const [viewingFile, setViewingFile] = useState(null);
 
   useEffect(() => {
     async function init() {
@@ -181,22 +183,8 @@ export default function Room() {
     }
   }
 
-  async function openFile(fileId, mimeType) {
-    try {
-      const response = await api.get(`/files/download/${fileId}`, {
-        responseType: 'blob',
-      });
-
-      const blob = new Blob([response.data], { type: mimeType });
-      const url = window.URL.createObjectURL(blob);
-      window.open(url, '_blank');
-      
-      // Clean up after a delay
-      setTimeout(() => window.URL.revokeObjectURL(url), 100);
-    } catch (err) {
-      alert('Failed to open file');
-      console.error(err);
-    }
+  function openFile(file) {
+    setViewingFile(file);
   }
 
   async function deleteFile(fileId) {
@@ -414,7 +402,7 @@ export default function Room() {
                           </p>
                           <div className="flex flex-wrap gap-2 mt-3">
                             <button
-                              onClick={() => openFile(file._id, file.mimeType)}
+                              onClick={() => openFile(file)}
                               className="text-xs px-3 py-1 bg-green-50 text-green-600 rounded hover:bg-green-100 font-medium"
                             >
                               📂 Open
@@ -475,6 +463,11 @@ export default function Room() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* File Viewer Modal */}
+      {viewingFile && (
+        <FileViewer file={viewingFile} onClose={() => setViewingFile(null)} />
       )}
     </div>
   );
