@@ -133,6 +133,28 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('file:viewer:join', ({ fileId, roomCode, userId, userName }) => {
+    try {
+      if (!fileId || !roomCode || !userId) return;
+      console.log(`👁️ User ${userName} started viewing file ${fileId} in room ${roomCode}`);
+      // Broadcast to all users in the room that someone is viewing the file
+      io.to(roomCode).emit('file:viewer:joined', { fileId, userId, userName });
+    } catch (err) {
+      console.error('file:viewer:join error', err);
+    }
+  });
+
+  socket.on('file:viewer:leave', ({ fileId, roomCode, userId }) => {
+    try {
+      if (!fileId || !roomCode || !userId) return;
+      console.log(`👋 User ${userId} stopped viewing file ${fileId} in room ${roomCode}`);
+      // Broadcast to all users in the room that someone stopped viewing the file
+      io.to(roomCode).emit('file:viewer:left', { fileId, userId });
+    } catch (err) {
+      console.error('file:viewer:leave error', err);
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('Socket disconnected:', socket.id);
   });
