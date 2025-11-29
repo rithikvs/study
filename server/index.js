@@ -158,6 +158,22 @@ io.on('connection', (socket) => {
       if (!roomCode || !userId) return;
       socket.data = { userId, userName };
       console.log(`📺 User ${userName} joined screenshare session in room ${roomCode}`);
+      
+      // Send current presenter info to late joiners
+      const roomSockets = io.sockets.adapter.rooms.get(roomCode);
+      if (roomSockets) {
+        for (const socketId of roomSockets) {
+          const s = io.sockets.sockets.get(socketId);
+          if (s && s.data?.isPresenting) {
+            socket.emit('screenshare:presenter-started', {
+              userId: s.data.userId,
+              userName: s.data.userName
+            });
+            console.log(`📺 Notifying late joiner ${userName} about ongoing presentation by ${s.data.userName}`);
+            break;
+          }
+        }
+      }
     } catch (err) {
       console.error('screenshare:join error', err);
     }
@@ -175,6 +191,7 @@ io.on('connection', (socket) => {
   socket.on('screenshare:start-presenting', ({ roomCode, userId, userName }) => {
     try {
       if (!roomCode || !userId) return;
+      socket.data.isPresenting = true;
       console.log(`🎥 User ${userName} started presenting screen in room ${roomCode}`);
       io.to(roomCode).emit('screenshare:presenter-started', { userId, userName });
     } catch (err) {
@@ -184,6 +201,7 @@ io.on('connection', (socket) => {
   socket.on('screenshare:stop-presenting', ({ roomCode, userId }) => {
     try {
       if (!roomCode) return;
+      socket.data.isPresenting = false;
       console.log(`⏹️ User ${userId} stopped presenting in room ${roomCode}`);
       io.to(roomCode).emit('screenshare:presenter-stopped', { userId });
     } catch (err) {

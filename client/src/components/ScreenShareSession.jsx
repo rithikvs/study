@@ -317,12 +317,19 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   }
 
   async function joinViewing() {
-    if (!presenter || presenter.userId === authUser.id) return;
+    if (!presenter) return;
 
     try {
       setError(null);
-      setConnectionStatus('connecting');
       setIsViewing(true);
+      
+      // Allow presenter to view their own screen
+      if (presenter.userId === authUser.id) {
+        setConnectionStatus('Viewing your own screen');
+        return;
+      }
+      
+      setConnectionStatus('connecting');
       
       // Request to view - presenter will send us an offer
       socket.emit('screenshare:request-view', {
@@ -693,9 +700,11 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
 
         {isViewing && !isSharing && !error && (
           <div className="w-full max-w-6xl">
-            <h3 className="text-white text-xl mb-4">Viewing: {presenter?.userName}'s Screen</h3>
+            <h3 className="text-white text-xl mb-4">
+              {presenter?.userId === authUser.id ? 'Viewing Your Screen' : `Viewing: ${presenter?.userName}'s Screen`}
+            </h3>
             <video
-              ref={remoteVideoRef}
+              ref={presenter?.userId === authUser.id ? localVideoRef : remoteVideoRef}
               autoPlay
               playsInline
               controls

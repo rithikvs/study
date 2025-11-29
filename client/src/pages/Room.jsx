@@ -86,9 +86,7 @@ export default function Room() {
     // Screen share notifications
     function onPresenterStarted({ userId, userName }) {
       console.log('📺 Screen share started by:', userName);
-      if (userId !== authUser?.id) {
-        setScreenSharePresenter({ userId, userName });
-      }
+      setScreenSharePresenter({ userId, userName });
     }
     
     function onPresenterStopped() {
@@ -254,8 +252,16 @@ export default function Room() {
                   </svg>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="font-bold text-base md:text-lg truncate">{screenSharePresenter.userName} is sharing</div>
-                  <div className="text-xs md:text-sm opacity-90">Tap to join and view</div>
+                  <div className="font-bold text-base md:text-lg truncate">
+                    {screenSharePresenter.userId === authUser?.id 
+                      ? 'You are sharing your screen' 
+                      : `${screenSharePresenter.userName} is sharing`}
+                  </div>
+                  <div className="text-xs md:text-sm opacity-90">
+                    {screenSharePresenter.userId === authUser?.id
+                      ? 'Tap to view your shared screen'
+                      : 'Tap to join and view'}
+                  </div>
                 </div>
               </div>
               <button
@@ -273,8 +279,12 @@ export default function Room() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
-                <span className="hidden sm:inline">Join & View</span>
-                <span className="sm:hidden">Join</span>
+                <span className="hidden sm:inline">
+                  {screenSharePresenter.userId === authUser?.id ? 'View Your Screen' : 'Join & View'}
+                </span>
+                <span className="sm:hidden">
+                  {screenSharePresenter.userId === authUser?.id ? 'View' : 'Join'}
+                </span>
               </button>
             </div>
           </div>
