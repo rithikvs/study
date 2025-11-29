@@ -39,45 +39,43 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   // Detect if mobile for forced TURN usage
   const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
-  // WebRTC configuration - Force TURN on mobile for better connectivity
+  // WebRTC configuration - Use reliable TURN servers for mobile
   const rtcConfig = {
     iceServers: [
-      // STUN servers for desktop
-      ...(!isMobileDevice ? [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-      ] : []),
-      // Multiple TURN servers for reliability
+      // Google STUN servers (always available)
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      // Metered TURN servers (free tier)
       {
-        urls: 'turn:openrelay.metered.ca:80',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
+        urls: 'turn:a.relay.metered.ca:80',
+        username: 'e21d09ead091c0c763d3e78f',
+        credential: 'h5xjAVDq3ac3JSl1',
       },
       {
-        urls: 'turn:openrelay.metered.ca:443',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
+        urls: 'turn:a.relay.metered.ca:80?transport=tcp',
+        username: 'e21d09ead091c0c763d3e78f',
+        credential: 'h5xjAVDq3ac3JSl1',
       },
       {
-        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
+        urls: 'turn:a.relay.metered.ca:443',
+        username: 'e21d09ead091c0c763d3e78f',
+        credential: 'h5xjAVDq3ac3JSl1',
       },
-      // Additional TURN server
       {
-        urls: 'turn:numb.viagenie.ca',
-        username: 'webrtc@live.com',
-        credential: 'muazkh'
+        urls: 'turns:a.relay.metered.ca:443?transport=tcp',
+        username: 'e21d09ead091c0c763d3e78f',
+        credential: 'h5xjAVDq3ac3JSl1',
       },
     ],
     iceCandidatePoolSize: 10,
-    // Force TURN on mobile devices
-    iceTransportPolicy: isMobileDevice ? 'relay' : 'all',
+    // Try all connection methods
+    iceTransportPolicy: 'all',
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require',
   };
   
-  console.log('📱 Device type:', isMobileDevice ? 'MOBILE' : 'DESKTOP', '| ICE Policy:', rtcConfig.iceTransportPolicy);
+  console.log('📱 Device type:', isMobileDevice ? 'MOBILE' : 'DESKTOP');
 
   // Auto-join when banner button is clicked
   useEffect(() => {
@@ -582,86 +580,60 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         peerConnectionsRef.current.delete(fromUserId);
       }
       
-      addDebugLog('🔨 Creating new RTCPeerConnection...');
-      addDebugLog('📋 ICE Policy: ' + rtcConfig.iceTransportPolicy);
+      addDebugLog('🔨 Creating RTCPeerConnection...');
       const peerConnection = new RTCPeerConnection(rtcConfig);
       peerConnectionsRef.current.set(fromUserId, peerConnection);
-      addDebugLog('✅ RTCPeerConnection created');
+      addDebugLog('✅ Peer connection created');
 
-      // Set up all event handlers FIRST before setting remote description
-      addDebugLog('🔧 Setting up event handlers...');
+      // Set up ALL event handlers FIRST
+      addDebugLog('🔧 Setting up handlers...');
 
-      // Handle incoming stream from presenter
+      // Handle incoming stream
       peerConnection.ontrack = (event) => {
-        addDebugLog('📺 ONTRACK EVENT! Track kind: ' + event.track.kind);
-        addDebugLog('Track state: enabled=' + event.track.enabled + ' muted=' + event.track.muted + ' ready=' + event.track.readyState);
-        addDebugLog('Streams count: ' + event.streams.length);
-        
+        addDebugLog('📺 TRACK RECEIVED: ' + event.track.kind);
         if (remoteVideoRef.current && event.streams[0]) {
-          addDebugLog('🎬 Setting srcObject on video element');
+          addDebugLog('🎬 Setting video stream');
           remoteVideoRef.current.srcObject = event.streams[0];
           setConnectionStatus('connected');
-          addDebugLog('✅ Connected! Video stream set');
-          addDebugLog('Stream ID: ' + event.streams[0].id + ' | Tracks: ' + event.streams[0].getTracks().length);
+          addDebugLog('✅ CONNECTED! Stream attached');
+          setError(null);
           
-          // Aggressive video playback for mobile - multiple retry attempts
-          const tryPlayVideo = (attempt = 1) => {
-            if (!remoteVideoRef.current || attempt > 5) return;
-            
+          // Play video with retries
+          const playVideo = (attempt = 1) => {
+            if (!remoteVideoRef.current || attempt > 3) return;
             remoteVideoRef.current.play()
-              .then(() => {
-                console.log('✅ Remote video playing (attempt ' + attempt + ')');
-                console.log('Video dimensions:', remoteVideoRef.current.videoWidth, 'x', remoteVideoRef.current.videoHeight);
-                setError(null); // Clear any connection errors
-              })
-              .catch(e => {
-                console.error('❌ Error playing remote video (attempt ' + attempt + '):', e);
-                // Retry after delay
-                setTimeout(() => tryPlayVideo(attempt + 1), 500);
-              });
+              .then(() => addDebugLog('▶️ Video playing'))
+              .catch(() => setTimeout(() => playVideo(attempt + 1), 300));
           };
-          
-          // Try immediately and also after delays
-          tryPlayVideo(1);
-          setTimeout(() => tryPlayVideo(2), 200);
-          setTimeout(() => tryPlayVideo(3), 500);
+          setTimeout(() => playVideo(), 100);
         }
       };
 
       // Handle ICE candidates
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-          addDebugLog('🧊 Sending ICE candidate: ' + event.candidate.type);
+          addDebugLog('🧊 ICE: ' + (event.candidate.type || 'candidate'));
           socket.emit('screenshare:ice-candidate', {
             roomCode,
             candidate: event.candidate,
             fromUserId: authUser.id,
             toUserId: fromUserId,
           });
-        } else {
-          addDebugLog('✅ All ICE candidates sent');
         }
       };
 
       // Monitor connection state
       peerConnection.onconnectionstatechange = () => {
-        console.log('Viewer connection state:', peerConnection.connectionState);
+        addDebugLog('🔌 Connection: ' + peerConnection.connectionState);
         if (peerConnection.connectionState === 'connected') {
           setConnectionStatus('connected');
-          setError(null); // Clear any errors
+          setError(null);
         } else if (peerConnection.connectionState === 'failed') {
+          addDebugLog('❌ Connection FAILED');
           setConnectionStatus('disconnected');
           setIsViewing(false);
-          setError('🔴 Connection Failed\n\nUnable to connect to presenter\'s screen.\n\nTry these steps:\n1. Click "View" button again\n2. Ask presenter to restart sharing\n3. Check your internet connection\n4. Try refreshing the page');
-        } else if (peerConnection.connectionState === 'disconnected') {
-          console.log('⚠️ Connection disconnected');
-          setConnectionStatus('disconnected');
+          setError('🔴 Connection Failed\n\nUnable to connect.\n\nTry:\n1. Switch WiFi/mobile data\n2. Ask presenter to restart\n3. Refresh page');
         }
-      };
-
-      // Add error handler
-      peerConnection.onicecandidateerror = (event) => {
-        console.error('ICE candidate error:', event);
       };
 
       // Monitor ICE connection state
@@ -715,45 +687,45 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         console.log('📊 Signaling state:', peerConnection.signalingState);
       };
 
-      // Set remote description first (critical for mobile)
-      addDebugLog('📝 Step 1: Setting remote description...');
+      // Step 1: Set remote description
+      addDebugLog('📝 Setting remote desc...');
       await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-      addDebugLog('✅ Remote description set');
+      addDebugLog('✅ Remote desc set');
       
-      // Process any pending ICE candidates
-      const pendingCandidates = pendingCandidatesRef.current.get(fromUserId) || [];
-      if (pendingCandidates.length > 0) {
-        addDebugLog('🧊 Processing ' + pendingCandidates.length + ' pending candidates');
-        for (const candidate of pendingCandidates) {
+      // Process pending ICE candidates
+      const pending = pendingCandidatesRef.current.get(fromUserId) || [];
+      if (pending.length > 0) {
+        addDebugLog('🧊 Adding ' + pending.length + ' queued candidates');
+        for (const c of pending) {
           try {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-          } catch (err) {
-            addDebugLog('⚠️ Pending candidate error: ' + err.message);
-          }
+            await peerConnection.addIceCandidate(new RTCIceCandidate(c));
+          } catch (e) { /* ignore */ }
         }
         pendingCandidatesRef.current.delete(fromUserId);
-        addDebugLog('✅ Pending candidates processed');
       }
       
-      // Create answer
-      addDebugLog('📝 Step 2: Creating answer...');
-      const answer = await peerConnection.createAnswer();
-      addDebugLog('✅ Answer created: ' + answer.type);
+      // Step 2: Create answer
+      addDebugLog('📝 Creating answer...');
+      const answer = await peerConnection.createAnswer({
+        offerToReceiveVideo: true,
+        offerToReceiveAudio: false,
+      });
+      addDebugLog('✅ Answer created');
       
-      // Set local description
-      addDebugLog('📝 Step 3: Setting local description...');
+      // Step 3: Set local description
+      addDebugLog('📝 Setting local desc...');
       await peerConnection.setLocalDescription(answer);
-      addDebugLog('✅ Local description set');
+      addDebugLog('✅ Local desc set');
       
-      // Send answer back to presenter
-      addDebugLog('📤 Step 4: Sending answer to presenter');
+      // Step 4: Send answer
+      addDebugLog('📤 Sending answer...');
       socket.emit('screenshare:answer', {
         roomCode,
         answer,
         fromUserId: authUser.id,
         toUserId: fromUserId,
       });
-      addDebugLog('✅ Answer sent! Waiting for ICE candidates...');
+      addDebugLog('✅ Answer sent! Waiting for connection...');
 
     } catch (err) {
       console.error('❌ Error handling offer:', err);
@@ -1222,17 +1194,22 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         )}
 
         {connectionStatus === 'connecting' && isViewing && !error && (
-          <div className="text-white text-center">
+          <div className="text-white text-center max-w-md mx-auto px-4">
             <div className="text-6xl mb-4 animate-pulse">🔄</div>
             <h3 className="text-2xl mb-2">Connecting to {presenter?.userName}...</h3>
-            <p className="text-gray-400 mb-4">Please wait while we establish the connection</p>
-            <div className="flex flex-col gap-2 items-center">
+            <p className="text-gray-400 mb-4">Establishing WebRTC connection</p>
+            <div className="flex flex-col gap-3 items-center">
               <div className="flex gap-2">
                 <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
                 <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                 <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
               </div>
-              <p className="text-xs text-gray-500 mt-4">This may take up to 20 seconds on mobile networks</p>
+              <p className="text-xs text-gray-500 mt-2">May take 10-20 seconds on mobile</p>
+              {isMobileDevice && (
+                <div className="text-xs text-yellow-400 bg-yellow-900/20 p-3 rounded mt-2">
+                  📱 Mobile tip: Check the debug log below for progress
+                </div>
+              )}
             </div>
           </div>
         )}
