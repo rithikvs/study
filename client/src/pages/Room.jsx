@@ -24,6 +24,7 @@ export default function Room() {
   const [newNoteName, setNewNoteName] = useState('');
   const [showScreenShare, setShowScreenShare] = useState(false);
   const [viewingFile, setViewingFile] = useState(null);
+  const [screenSharePresenter, setScreenSharePresenter] = useState(null);
 
   useEffect(() => {
     async function init() {
@@ -82,12 +83,30 @@ export default function Room() {
     socket.on('note:deleted', onDeleted);
     socket.on('room:deleted', onRoomDeleted);
     
+    // Screen share notifications
+    function onPresenterStarted({ userId, userName }) {
+      console.log('📺 Screen share started by:', userName);
+      if (userId !== authUser?.id) {
+        setScreenSharePresenter({ userId, userName });
+      }
+    }
+    
+    function onPresenterStopped() {
+      console.log('📺 Screen share stopped');
+      setScreenSharePresenter(null);
+    }
+    
+    socket.on('screenshare:presenter-started', onPresenterStarted);
+    socket.on('screenshare:presenter-stopped', onPresenterStopped);
+    
     return () => {
       console.log('🚪 Leaving socket room:', roomCode);
       socket.off('note:updated', onUpdated);
       socket.off('note:created', onCreated);
       socket.off('note:deleted', onDeleted);
       socket.off('room:deleted', onRoomDeleted);
+      socket.off('screenshare:presenter-started', onPresenterStarted);
+      socket.off('screenshare:presenter-stopped', onPresenterStopped);
     };
   }, [roomCode, activeId, navigate, setGroups]);
 
@@ -222,6 +241,36 @@ export default function Room() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-slate-100">
       <Navbar />
+      
+      {/* Screen Share Notification Banner */}
+      {screenSharePresenter && (
+        <div className="bg-gradient-to-r from-green-500 to-blue-500 text-white shadow-lg">
+          <div className="mx-auto max-w-6xl px-4 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="animate-pulse">
+                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+                </svg>
+              </div>
+              <div>
+                <div className="font-bold text-lg">{screenSharePresenter.userName} is sharing their screen</div>
+                <div className="text-sm opacity-90">Click "Screen Share" button to join and view</div>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowScreenShare(true)}
+              className="px-6 py-3 bg-white text-blue-600 rounded-lg hover:bg-blue-50 font-bold shadow-lg transition flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              Join & View
+            </button>
+          </div>
+        </div>
+      )}
+      
       <main className="mx-auto max-w-6xl px-4 py-8">
         <div className="flex items-center justify-between mb-4">
           <div>

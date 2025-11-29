@@ -123,11 +123,12 @@ export default function ScreenShareSession({ roomCode, onClose }) {
     try {
       setError(null);
       
-      let stream;
+      let stream = null;
       
-      // Try screen sharing first (desktop browsers)
-      if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+      // First, try getDisplayMedia (works on desktop and newer Android Chrome)
+      if (navigator.mediaDevices?.getDisplayMedia) {
         try {
+          console.log('🖥️ Attempting screen share with getDisplayMedia...');
           stream = await navigator.mediaDevices.getDisplayMedia({
             video: {
               cursor: 'always',
@@ -137,37 +138,26 @@ export default function ScreenShareSession({ roomCode, onClose }) {
             },
             audio: false,
           });
+          console.log('✅ Screen share started successfully');
         } catch (err) {
-          // If getDisplayMedia fails, try getUserMedia for mobile
-          if (err.name === 'NotAllowedError') {
-            throw err; // User denied permission
+          console.log('getDisplayMedia error:', err.name, err.message);
+          
+          // User cancelled or permission denied - don't try fallback
+          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            throw err;
           }
-          console.log('getDisplayMedia not available, trying camera for mobile...');
+          
+          // NotSupported or other error - try camera fallback
+          console.log('Screen sharing not supported, will try camera fallback...');
           stream = null;
         }
       }
       
-      // Fallback to camera for mobile devices
-      if (!stream && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              facingMode: 'user', // front camera by default
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
-              frameRate: { ideal: 30 },
-            },
-            audio: false,
-          });
-          // Let user know they're sharing camera instead of screen
-          console.log('📱 Sharing camera stream (mobile device)');
-        } catch (err) {
-          throw new Error('Camera access denied or not available');
-        }
-      }
-      
+      // If no stream yet, it means getDisplayMedia is not available or failed
+      // This can happen on older mobile browsers
       if (!stream) {
-        setError('Unable to start sharing. Please allow camera/screen access or use a desktop browser.');
+        console.log('⚠️ Screen sharing not available on this device');
+        setError('Screen sharing is not supported on this device. Please use Chrome on Android (v72+) or a desktop browser.');
         return;
       }
 
@@ -206,12 +196,12 @@ export default function ScreenShareSession({ roomCode, onClose }) {
 
     } catch (err) {
       console.error('Error starting screen share:', err);
-      if (err.name === 'NotAllowedError') {
-        setError('Permission denied. Please allow camera/screen access in your browser settings and try again.');
-      } else if (err.message && err.message.includes('Camera access denied')) {
-        setError('Camera access denied. Please allow camera permission in your browser settings.');
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setError('Permission denied. Please allow screen/camera access and try again.');
+      } else if (err.name === 'NotSupportedError') {
+        setError('Screen sharing is not supported on this device. Use Chrome on desktop or Android (v72+).');
       } else {
-        setError('Failed to start sharing. Make sure you have a camera or use a desktop browser for screen sharing.');
+        setError('Failed to start sharing. Try using Chrome on desktop or Android for best compatibility.');
       }
     }
   }
@@ -545,11 +535,12 @@ export default function ScreenShareSession({ roomCode, onClose }) {
             <p className="text-gray-400 mb-4">Click "Start Sharing" to share with the room</p>
             <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-4 mt-4">
               <p className="text-sm text-blue-300">
-                💻 <strong>Desktop:</strong> Share your screen<br/>
-                📱 <strong>Mobile:</strong> Share your camera
+                💻 <strong>Desktop:</strong> Full screen sharing support<br/>
+                📱 <strong>Android (Chrome 72+):</strong> Screen sharing available<br/>
+                📱 <strong>iOS/Safari:</strong> Not supported yet
               </p>
               <p className="text-xs text-gray-400 mt-2">
-                All room members can view what you share
+                All room members can join and view what you share
               </p>
             </div>
           </div>
