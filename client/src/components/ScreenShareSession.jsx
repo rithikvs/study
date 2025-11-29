@@ -623,16 +623,76 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       };
 
       // Monitor connection state
-      peerConnection.onconnectionstatechange = () => {
+      peerConnection.onconnectionstatechange = async () => {
         addDebugLog('🔌 Connection: ' + peerConnection.connectionState);
         if (peerConnection.connectionState === 'connected') {
           setConnectionStatus('connected');
           setError(null);
         } else if (peerConnection.connectionState === 'failed') {
-          addDebugLog('❌ Connection FAILED');
-          setConnectionStatus('disconnected');
-          setIsViewing(false);
-          setError('🔴 Connection Failed\n\nUnable to connect.\n\nTry:\n1. Switch WiFi/mobile data\n2. Ask presenter to restart\n3. Refresh page');
+          addDebugLog('❌ Connection FAILED - will retry with forced TURN relay');
+          setConnectionStatus('reconnecting');
+          
+          // Retry with forced TURN relay
+          try {
+            addDebugLog('🔄 Retrying with TURN relay only...');
+            
+            // Close failed connection
+            peerConnection.close();
+            peerConnectionsRef.current.delete(fromUserId);
+            
+            // Create new connection with forced relay
+            const relayConfig = {
+              ...rtcConfig,
+              iceTransportPolicy: 'relay' // Force TURN usage
+            };
+            addDebugLog('📋 Using relay mode (forced TURN)');
+            
+            const newPc = new RTCPeerConnection(relayConfig);
+            peerConnectionsRef.current.set(fromUserId, newPc);
+            
+            // Copy all event handlers to new connection
+            newPc.ontrack = peerConnection.ontrack;
+            newPc.onicecandidate = (event) => {
+              if (event.candidate) {
+                addDebugLog('🧊 RELAY ICE: ' + (event.candidate.type || 'candidate'));
+                socket.emit('screenshare:ice-candidate', {
+                  roomCode,
+                  candidate: event.candidate,
+                  fromUserId: authUser.id,
+                  toUserId: fromUserId,
+                });
+              }
+            };
+            newPc.onconnectionstatechange = () => {
+              addDebugLog('🔌 RELAY Connection: ' + newPc.connectionState);
+              if (newPc.connectionState === 'connected') {
+                setConnectionStatus('connected');
+                setError(null);
+              } else if (newPc.connectionState === 'failed') {
+                addDebugLog('❌ RELAY also failed');
+                setConnectionStatus('disconnected');
+                setIsViewing(false);
+                setError('🔴 Connection Failed\n\nBoth direct and relay connections failed.\n\nTry:\n1. Switch to different network\n2. Check firewall settings\n3. Ask presenter to restart');
+              }
+            };
+            newPc.oniceconnectionstatechange = () => {
+              addDebugLog('📊 RELAY ICE: ' + newPc.iceConnectionState);
+            };
+            
+            // Request new offer from presenter
+            addDebugLog('📤 Requesting new offer for relay connection');
+            socket.emit('screenshare:request-view', {
+              roomCode,
+              userId: authUser.id,
+              userName: authUser.name || authUser.username || 'Anonymous',
+            });
+            
+          } catch (retryErr) {
+            addDebugLog('❌ Retry failed: ' + retryErr.message);
+            setConnectionStatus('disconnected');
+            setIsViewing(false);
+            setError('🔴 Connection Failed\n\nRetry attempt failed.\n\nPlease refresh and try again.');
+          }
         }
       };
 
@@ -846,12 +906,81 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         };
 
         // Monitor connection state
-        peerConnection.onconnectionstatechange = () => {
+        peerConnection.onconnectionstatechange = async () => {
           console.log('Presenter connection state with', userName, ':', peerConnection.connectionState);
           if (peerConnection.connectionState === 'connected') {
             console.log('✅ Successfully connected to viewer:', userName);
           } else if (peerConnection.connectionState === 'failed') {
             console.error('❌ Connection failed with viewer:', userName);
+            console.log('🔄 Retrying with forced TURN relay for viewer:', userName);
+            
+            // Retry with forced relay
+            try {
+              // Close failed connection
+              peerConnection.close();
+              peerConnectionsRef.current.delete(userId);
+              
+              // Create new connection with forced relay
+              const relayConfig = {
+                ...rtcConfig,
+                iceTransportPolicy: 'relay'
+              };
+              console.log('📋 Presenter using relay mode (forced TURN) for:', userName);
+              
+              const newPc = new RTCPeerConnection(relayConfig);
+              peerConnectionsRef.current.set(userId, newPc);
+              
+              // Add tracks
+              if (streamRef.current) {
+                streamRef.current.getTracks().forEach(track => {
+                  newPc.addTrack(track, streamRef.current);
+                });
+              }
+              
+              // Set up handlers
+              newPc.onicecandidate = (event) => {
+                if (event.candidate) {
+                  console.log('🧊 Presenter sending RELAY ICE candidate to:', userName);
+                  socket.emit('screenshare:ice-candidate', {
+                    roomCode,
+                    candidate: event.candidate,
+                    fromUserId: authUser.id,
+                    toUserId: userId,
+                  });
+                }
+              };
+              
+              newPc.onconnectionstatechange = () => {
+                console.log('Presenter RELAY connection state with', userName, ':', newPc.connectionState);
+                if (newPc.connectionState === 'connected') {
+                  console.log('✅ RELAY connection successful with viewer:', userName);
+                } else if (newPc.connectionState === 'failed') {
+                  console.error('❌ RELAY connection also failed with viewer:', userName);
+                }
+              };
+              
+              newPc.oniceconnectionstatechange = () => {
+                console.log('Presenter RELAY ICE state with', userName, ':', newPc.iceConnectionState);
+              };
+              
+              // Create and send new offer
+              const offer = await newPc.createOffer({
+                offerToReceiveAudio: false,
+                offerToReceiveVideo: true,
+              });
+              await newPc.setLocalDescription(offer);
+              
+              console.log('📤 Sending RELAY offer to viewer:', userName);
+              socket.emit('screenshare:offer', {
+                roomCode,
+                offer,
+                fromUserId: authUser.id,
+                toUserId: userId,
+              });
+              
+            } catch (retryErr) {
+              console.error('❌ Presenter retry failed for viewer:', userName, retryErr);
+            }
           }
         };
 
