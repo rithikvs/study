@@ -164,8 +164,16 @@ export default function ScreenShareSession({ roomCode, onClose }) {
       }
 
       streamRef.current = stream;
+      
+      // Set local video preview
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
+        console.log('✅ Local video stream set:', stream.getTracks());
+        
+        // Ensure video plays
+        localVideoRef.current.onloadedmetadata = () => {
+          localVideoRef.current.play().catch(e => console.error('Error playing local video:', e));
+        };
       }
 
       // Notify server that we're presenting
@@ -244,11 +252,20 @@ export default function ScreenShareSession({ roomCode, onClose }) {
 
       // Handle incoming stream from presenter
       peerConnection.ontrack = (event) => {
-        console.log('📺 Received remote stream from presenter', event.streams[0]);
+        console.log('📺 Received remote track:', event.track.kind, event.streams);
         if (remoteVideoRef.current && event.streams[0]) {
           remoteVideoRef.current.srcObject = event.streams[0];
           setConnectionStatus('connected');
           console.log('✅ Video stream set to remote video element');
+          console.log('Stream tracks:', event.streams[0].getTracks());
+          
+          // Ensure video plays
+          remoteVideoRef.current.onloadedmetadata = () => {
+            console.log('📺 Video metadata loaded, playing...');
+            remoteVideoRef.current.play()
+              .then(() => console.log('✅ Video playing'))
+              .catch(e => console.error('❌ Error playing video:', e));
+          };
         }
       };
 
@@ -339,9 +356,12 @@ export default function ScreenShareSession({ roomCode, onClose }) {
         peerConnectionsRef.current.set(userId, peerConnection);
 
         // Add our stream tracks
-        streamRef.current.getTracks().forEach(track => {
-          console.log('Adding track to peer connection:', track.kind);
-          peerConnection.addTrack(track, streamRef.current);
+        const tracks = streamRef.current.getTracks();
+        console.log('📤 Adding tracks to peer connection:', tracks.map(t => t.kind));
+        tracks.forEach(track => {
+          console.log('Adding track:', track.kind, track.enabled, track.readyState);
+          const sender = peerConnection.addTrack(track, streamRef.current);
+          console.log('Track added, sender:', sender);
         });
 
         // Handle ICE candidates
@@ -523,7 +543,9 @@ export default function ScreenShareSession({ roomCode, onClose }) {
               autoPlay
               playsInline
               muted
-              className="w-full rounded-lg shadow-2xl bg-black"
+              controls
+              className="w-full rounded-lg shadow-2xl bg-black min-h-[400px]"
+              style={{ maxHeight: '70vh' }}
             />
           </div>
         )}
@@ -535,7 +557,9 @@ export default function ScreenShareSession({ roomCode, onClose }) {
               ref={remoteVideoRef}
               autoPlay
               playsInline
-              className="w-full rounded-lg shadow-2xl bg-black"
+              controls
+              className="w-full rounded-lg shadow-2xl bg-black min-h-[400px]"
+              style={{ maxHeight: '70vh' }}
             />
           </div>
         )}
@@ -551,8 +575,8 @@ export default function ScreenShareSession({ roomCode, onClose }) {
 
       {/* Status Bar */}
       <div className="bg-slate-800 text-white p-2 text-sm text-center">
-        {isSharing && `📡 Sharing screen with ${viewers.length} viewer${viewers.length !== 1 ? 's' : ''}`}
-        {isViewing && !isSharing && `👁️ Viewing ${presenter?.userName}'s screen`}
+        {isSharing && `📡 Sharing screen with ${viewers.length} viewer${viewers.length !== 1 ? 's' : ''} • ${streamRef.current ? `Stream: ${streamRef.current.getTracks().length} track(s)` : 'No stream'}`}
+        {isViewing && !isSharing && `👁️ Viewing ${presenter?.userName}'s screen • Status: ${connectionStatus}`}
         {!isSharing && !presenter && '💡 Click "Start Sharing" to begin screen sharing session'}
         {presenter && !isSharing && !isViewing && `📺 ${presenter.userName} is presenting - Click "Join View" to watch`}
       </div>
