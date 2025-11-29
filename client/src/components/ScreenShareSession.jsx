@@ -39,14 +39,13 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   // Detect if mobile for forced TURN usage
   const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
-  // WebRTC configuration - Use reliable TURN servers for mobile
+  // WebRTC configuration - Multiple TURN servers for reliability
   const rtcConfig = {
     iceServers: [
-      // Google STUN servers (always available)
+      // Google STUN servers
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      // Metered TURN servers (free tier)
+      // Metered TURN servers
       {
         urls: 'turn:a.relay.metered.ca:80',
         username: 'e21d09ead091c0c763d3e78f',
@@ -67,10 +66,26 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         username: 'e21d09ead091c0c763d3e78f',
         credential: 'h5xjAVDq3ac3JSl1',
       },
+      // Additional open TURN servers as backup
+      {
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
     ],
     iceCandidatePoolSize: 10,
-    // Try all connection methods
-    iceTransportPolicy: 'all',
+    // Mobile devices should prefer TURN to avoid NAT issues
+    iceTransportPolicy: isMobileDevice ? 'relay' : 'all',
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require',
   };
@@ -187,10 +202,9 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       remoteVideoRef.current.srcObject = null;
     }
     
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
-      peerConnectionRef.current = null;
-    }
+    // Close all peer connections
+    peerConnectionsRef.current.forEach(pc => pc.close());
+    peerConnectionsRef.current.clear();
   }
 
   function handleViewersUpdate({ viewers: viewersList }) {
@@ -536,8 +550,9 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         roomCode,
         userId: authUser.id,
         userName: authUser.name,
+        isMobile: isMobileDevice, // Tell presenter we're mobile so they use relay mode
       });
-      addDebugLog('✅ Request-view emitted successfully');
+      addDebugLog('✅ Request-view emitted (device: ' + (isMobileDevice ? 'MOBILE' : 'DESKTOP') + ')');
       addDebugLog('⏳ Waiting for offer from presenter...');
 
       // Set a timeout for connection with retry option
@@ -623,76 +638,39 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       };
 
       // Monitor connection state
+      let hasRetried = false; // Prevent multiple retries
       peerConnection.onconnectionstatechange = async () => {
         addDebugLog('🔌 Connection: ' + peerConnection.connectionState);
         if (peerConnection.connectionState === 'connected') {
           setConnectionStatus('connected');
           setError(null);
-        } else if (peerConnection.connectionState === 'failed') {
-          addDebugLog('❌ Connection FAILED - will retry with forced TURN relay');
+        } else if (peerConnection.connectionState === 'failed' && !hasRetried) {
+          hasRetried = true;
+          addDebugLog('❌ Connection FAILED - retrying with TURN relay...');
           setConnectionStatus('reconnecting');
+          setError('⏳ Connection failed, retrying with relay server...');
           
-          // Retry with forced TURN relay
+          // Wait a moment before retry
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Close and cleanup failed connection
           try {
-            addDebugLog('🔄 Retrying with TURN relay only...');
-            
-            // Close failed connection
             peerConnection.close();
-            peerConnectionsRef.current.delete(fromUserId);
-            
-            // Create new connection with forced relay
-            const relayConfig = {
-              ...rtcConfig,
-              iceTransportPolicy: 'relay' // Force TURN usage
-            };
-            addDebugLog('📋 Using relay mode (forced TURN)');
-            
-            const newPc = new RTCPeerConnection(relayConfig);
-            peerConnectionsRef.current.set(fromUserId, newPc);
-            
-            // Copy all event handlers to new connection
-            newPc.ontrack = peerConnection.ontrack;
-            newPc.onicecandidate = (event) => {
-              if (event.candidate) {
-                addDebugLog('🧊 RELAY ICE: ' + (event.candidate.type || 'candidate'));
-                socket.emit('screenshare:ice-candidate', {
-                  roomCode,
-                  candidate: event.candidate,
-                  fromUserId: authUser.id,
-                  toUserId: fromUserId,
-                });
-              }
-            };
-            newPc.onconnectionstatechange = () => {
-              addDebugLog('🔌 RELAY Connection: ' + newPc.connectionState);
-              if (newPc.connectionState === 'connected') {
-                setConnectionStatus('connected');
-                setError(null);
-              } else if (newPc.connectionState === 'failed') {
-                addDebugLog('❌ RELAY also failed');
-                setConnectionStatus('disconnected');
-                setIsViewing(false);
-                setError('🔴 Connection Failed\n\nBoth direct and relay connections failed.\n\nTry:\n1. Switch to different network\n2. Check firewall settings\n3. Ask presenter to restart');
-              }
-            };
-            newPc.oniceconnectionstatechange = () => {
-              addDebugLog('📊 RELAY ICE: ' + newPc.iceConnectionState);
-            };
-            
-            // Request new offer from presenter
-            addDebugLog('📤 Requesting new offer for relay connection');
-            socket.emit('screenshare:request-view', {
-              roomCode,
-              userId: authUser.id,
-              userName: authUser.name || authUser.username || 'Anonymous',
-            });
-            
-          } catch (retryErr) {
-            addDebugLog('❌ Retry failed: ' + retryErr.message);
-            setConnectionStatus('disconnected');
-            setIsViewing(false);
-            setError('🔴 Connection Failed\n\nRetry attempt failed.\n\nPlease refresh and try again.');
-          }
+          } catch (e) {}
+          peerConnectionsRef.current.delete(fromUserId);
+          
+          // Notify user we're retrying
+          addDebugLog('🔄 Creating relay connection (forced TURN)...');
+          
+          // Request viewer to reconnect - this will trigger a new offer from presenter
+          // which we'll handle with relay mode
+          socket.emit('screenshare:retry-with-relay', {
+            roomCode,
+            userId: authUser.id,
+            userName: authUser.name || authUser.username || 'Anonymous',
+          });
+          
+          addDebugLog('📤 Retry request sent to presenter');
         }
       };
 
@@ -859,14 +837,24 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
 
   // Presenter: Handle view requests and create offers for viewers
   useEffect(() => {
-    async function handleViewRequest({ userId, userName }) {
+    async function handleViewRequest({ userId, userName, isMobile }) {
       if (!isSharing || !streamRef.current) return;
       if (userId === authUser.id) return; // Don't create connection to ourselves
 
-      console.log('👁️ Viewer requesting to join:', userName);
+      console.log('👁️ Viewer requesting to join:', userName, '(Device:', isMobile ? 'MOBILE' : 'DESKTOP', ')');
 
       try {
-        const peerConnection = new RTCPeerConnection(rtcConfig);
+        // Use relay mode for mobile viewers from the start
+        const config = isMobile ? {
+          ...rtcConfig,
+          iceTransportPolicy: 'relay'
+        } : rtcConfig;
+        
+        if (isMobile) {
+          console.log('📱 Using RELAY mode for mobile viewer:', userName);
+        }
+        
+        const peerConnection = new RTCPeerConnection(config);
         peerConnectionsRef.current.set(userId, peerConnection);
 
         // Add our stream tracks
