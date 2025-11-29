@@ -153,81 +153,94 @@ io.on('connection', (socket) => {
   });
 
   // Screen Share WebRTC Signaling
-  socket.on('screenshare:join', ({ fileId, roomCode, userId, userName }) => {
+  socket.on('screenshare:join', ({ roomCode, userId, userName }) => {
     try {
-      if (!fileId || !roomCode || !userId) return;
-      socket.join(`screenshare-${fileId}`);
-      console.log(`📺 User ${userName} joined screenshare session for file ${fileId}`);
+      if (!roomCode || !userId) return;
+      socket.data = { userId, userName };
+      console.log(`📺 User ${userName} joined screenshare session in room ${roomCode}`);
     } catch (err) {
       console.error('screenshare:join error', err);
     }
   });
 
-  socket.on('screenshare:leave', ({ fileId, roomCode, userId }) => {
+  socket.on('screenshare:leave', ({ roomCode, userId }) => {
     try {
-      if (!fileId) return;
-      socket.leave(`screenshare-${fileId}`);
-      console.log(`👋 User ${userId} left screenshare session for file ${fileId}`);
+      if (!roomCode) return;
+      console.log(`👋 User ${userId} left screenshare session in room ${roomCode}`);
     } catch (err) {
       console.error('screenshare:leave error', err);
     }
   });
 
-  socket.on('screenshare:start-presenting', ({ fileId, roomCode, userId, userName }) => {
+  socket.on('screenshare:start-presenting', ({ roomCode, userId, userName }) => {
     try {
-      if (!fileId || !roomCode || !userId) return;
-      console.log(`🎥 User ${userName} started presenting screen for file ${fileId}`);
+      if (!roomCode || !userId) return;
+      console.log(`🎥 User ${userName} started presenting screen in room ${roomCode}`);
       io.to(roomCode).emit('screenshare:presenter-started', { userId, userName });
     } catch (err) {
       console.error('screenshare:start-presenting error', err);
     }
   });
-
-  socket.on('screenshare:stop-presenting', ({ fileId, roomCode, userId }) => {
+  socket.on('screenshare:stop-presenting', ({ roomCode, userId }) => {
     try {
-      if (!fileId || !roomCode) return;
-      console.log(`⏹️ User ${userId} stopped presenting for file ${fileId}`);
+      if (!roomCode) return;
+      console.log(`⏹️ User ${userId} stopped presenting in room ${roomCode}`);
       io.to(roomCode).emit('screenshare:presenter-stopped', { userId });
     } catch (err) {
       console.error('screenshare:stop-presenting error', err);
     }
   });
 
-  socket.on('screenshare:viewer-joined', ({ fileId, roomCode, userId, userName }) => {
+  socket.on('screenshare:request-view', ({ roomCode, userId, userName }) => {
     try {
-      if (!fileId || !roomCode) return;
-      console.log(`👁️ Viewer ${userName} joined screenshare for file ${fileId}`);
-      socket.to(roomCode).emit('screenshare:viewer-joined', { userId, userName });
+      if (!roomCode || !userId) return;
+      console.log(`👁️ Viewer ${userName} requesting to view screenshare in room ${roomCode}`);
+      // Broadcast to presenter to create offer
+      socket.to(roomCode).emit('screenshare:request-view', { userId, userName });
+      
+      // Update viewers list
+      const viewers = [];
+      const roomSockets = io.sockets.adapter.rooms.get(roomCode);
+      if (roomSockets) {
+        roomSockets.forEach(socketId => {
+          const socket = io.sockets.sockets.get(socketId);
+          if (socket && socket.data?.userId && socket.data?.userId !== userId) {
+            viewers.push({ userId: socket.data.userId, userName: socket.data.userName });
+          }
+        });
+      }
+      viewers.push({ userId, userName });
+      io.to(roomCode).emit('screenshare:viewers-update', { viewers });
     } catch (err) {
-      console.error('screenshare:viewer-joined error', err);
+      console.error('screenshare:request-view error', err);
     }
   });
 
-  socket.on('screenshare:offer', ({ fileId, roomCode, offer, targetUserId, fromUserId }) => {
+  socket.on('screenshare:offer', ({ roomCode, offer, fromUserId }) => {
     try {
-      if (!offer || !targetUserId) return;
-      console.log(`📤 Sending WebRTC offer from ${fromUserId} to ${targetUserId}`);
-      io.to(roomCode).emit('screenshare:offer', { offer, fromUserId });
+      if (!offer || !roomCode) return;
+      console.log(`📤 Sending WebRTC offer from ${fromUserId} in room ${roomCode}`);
+      socket.to(roomCode).emit('screenshare:offer', { offer, fromUserId });
     } catch (err) {
       console.error('screenshare:offer error', err);
     }
   });
 
-  socket.on('screenshare:answer', ({ fileId, roomCode, answer, targetUserId, fromUserId }) => {
+  socket.on('screenshare:answer', ({ roomCode, answer, fromUserId }) => {
     try {
-      if (!answer || !targetUserId) return;
-      console.log(`📥 Sending WebRTC answer from ${fromUserId} to ${targetUserId}`);
-      io.to(roomCode).emit('screenshare:answer', { answer, fromUserId });
+      if (!answer || !roomCode) return;
+      console.log(`📥 Sending WebRTC answer from ${fromUserId} in room ${roomCode}`);
+      socket.to(roomCode).emit('screenshare:answer', { answer, fromUserId });
     } catch (err) {
       console.error('screenshare:answer error', err);
     }
   });
 
-  socket.on('screenshare:ice-candidate', ({ fileId, roomCode, candidate, targetUserId, fromUserId }) => {
+  socket.on('screenshare:ice-candidate', ({ roomCode, candidate, fromUserId }) => {
     try {
-      if (!candidate) return;
-      console.log(`🧊 Sending ICE candidate from ${fromUserId} to ${targetUserId}`);
-      io.to(roomCode).emit('screenshare:ice-candidate', { candidate, fromUserId });
+      if (!candidate || !roomCode) return;
+      console.log(`🧊 Sending ICE candidate from ${fromUserId} in room ${roomCode}`);
+      socket.to(roomCode).emit('screenshare:ice-candidate', { candidate, fromUserId });
     } catch (err) {
       console.error('screenshare:ice-candidate error', err);
     }

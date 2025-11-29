@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import ScreenShare from '../components/ScreenShare';
+import ScreenShareSession from '../components/ScreenShareSession';
+import FileViewerReadOnly from '../components/FileViewerReadOnly';
 import api from '../lib/api';
 import socket from '../lib/socket';
 import { useApp } from '../context/AppContext';
 
+// Room component - handles notes, files, and screen sharing
 export default function Room() {
   const { roomCode } = useParams();
   const navigate = useNavigate();
@@ -20,8 +22,8 @@ export default function Room() {
   const [activeTab, setActiveTab] = useState('notes'); // 'notes' or 'files'
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [newNoteName, setNewNoteName] = useState('');
+  const [showScreenShare, setShowScreenShare] = useState(false);
   const [viewingFile, setViewingFile] = useState(null);
-  const [fileViewers, setFileViewers] = useState({}); // { fileId: [{ userId, userName }] }
 
   useEffect(() => {
     async function init() {
@@ -75,35 +77,10 @@ export default function Room() {
       navigate('/');
     }
     
-    function onFileViewerJoined({ fileId, userId, userName }) {
-      console.log('👁️ User viewing file:', userName, fileId);
-      setFileViewers((prev) => {
-        const viewers = prev[fileId] || [];
-        if (!viewers.some(v => v.userId === userId)) {
-          return { ...prev, [fileId]: [...viewers, { userId, userName }] };
-        }
-        return prev;
-      });
-    }
-    
-    function onFileViewerLeft({ fileId, userId }) {
-      console.log('👋 User left file:', userId, fileId);
-      setFileViewers((prev) => {
-        const viewers = (prev[fileId] || []).filter(v => v.userId !== userId);
-        if (viewers.length === 0) {
-          const { [fileId]: _, ...rest } = prev;
-          return rest;
-        }
-        return { ...prev, [fileId]: viewers };
-      });
-    }
-    
     socket.on('note:updated', onUpdated);
     socket.on('note:created', onCreated);
     socket.on('note:deleted', onDeleted);
     socket.on('room:deleted', onRoomDeleted);
-    socket.on('file:viewer:joined', onFileViewerJoined);
-    socket.on('file:viewer:left', onFileViewerLeft);
     
     return () => {
       console.log('🚪 Leaving socket room:', roomCode);
@@ -111,8 +88,6 @@ export default function Room() {
       socket.off('note:created', onCreated);
       socket.off('note:deleted', onDeleted);
       socket.off('room:deleted', onRoomDeleted);
-      socket.off('file:viewer:joined', onFileViewerJoined);
-      socket.off('file:viewer:left', onFileViewerLeft);
     };
   }, [roomCode, activeId, navigate, setGroups]);
 
@@ -211,28 +186,6 @@ export default function Room() {
     }
   }
 
-  function openFile(file) {
-    setViewingFile(file);
-    // Notify other users that this user is viewing the file
-    socket.emit('file:viewer:join', { 
-      fileId: file._id, 
-      roomCode,
-      userId: authUser?.id,
-      userName: authUser?.name || 'Anonymous'
-    });
-  }
-  
-  function closeFile() {
-    if (viewingFile && authUser) {
-      socket.emit('file:viewer:leave', { 
-        fileId: viewingFile._id, 
-        roomCode,
-        userId: authUser.id
-      });
-    }
-    setViewingFile(null);
-  }
-
   async function deleteFile(fileId) {
     if (!confirm('Delete this file?')) return;
     try {
@@ -290,6 +243,15 @@ export default function Room() {
             )}
           </div>
           <div className="flex gap-2">
+            <button 
+              onClick={() => setShowScreenShare(true)} 
+              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              Screen Share
+            </button>
             <button onClick={openNoteModal} className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark">New Note</button>
             <label className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 cursor-pointer flex items-center gap-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -421,12 +383,6 @@ export default function Room() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {files.map((file) => (
                     <div key={file._id} className="border border-slate-200 rounded-lg p-4 hover:shadow-md transition relative">
-                      {fileViewers[file._id] && fileViewers[file._id].length > 0 && (
-                        <div className="absolute top-2 right-2 flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium animate-pulse">
-                          <span className="w-2 h-2 bg-green-500 rounded-full inline-block"></span>
-                          {fileViewers[file._id].length} viewing
-                        </div>
-                      )}
                       <div className="flex items-start gap-3">
                         <div className="flex-shrink-0">
                           {file.mimeType.startsWith('image/') ? (
@@ -452,21 +408,12 @@ export default function Room() {
                           <p className="text-xs text-slate-400">
                             {new Date(file.createdAt).toLocaleString()}
                           </p>
-                          {fileViewers[file._id] && fileViewers[file._id].length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {fileViewers[file._id].map((viewer, idx) => (
-                                <span key={idx} className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">
-                                  👁️ {viewer.userName}
-                                </span>
-                              ))}
-                            </div>
-                          )}
                           <div className="flex flex-wrap gap-2 mt-3">
                             <button
-                              onClick={() => openFile(file)}
-                              className="text-xs px-3 py-1 bg-green-50 text-green-600 rounded hover:bg-green-100 font-medium"
+                              onClick={() => setViewingFile(file)}
+                              className="text-xs px-3 py-1 bg-green-50 text-green-600 rounded hover:bg-green-100"
                             >
-                              📺 Screen Share
+                              👁️ Open
                             </button>
                             <button
                               onClick={() => downloadFile(file._id, file.originalName)}
@@ -526,9 +473,14 @@ export default function Room() {
         </div>
       )}
 
-      {/* Screen Share Modal */}
+      {/* Screen Share Session */}
+      {showScreenShare && (
+        <ScreenShareSession roomCode={roomCode} onClose={() => setShowScreenShare(false)} />
+      )}
+
+      {/* File Viewer */}
       {viewingFile && (
-        <ScreenShare file={viewingFile} roomCode={roomCode} onClose={closeFile} />
+        <FileViewerReadOnly file={viewingFile} onClose={() => setViewingFile(null)} />
       )}
     </div>
   );
