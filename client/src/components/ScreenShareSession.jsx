@@ -31,6 +31,11 @@ export default function ScreenShareSession({ roomCode, onClose }) {
   useEffect(() => {
     if (!roomCode || !authUser) return;
 
+    console.log('🔌 Joining screenshare room:', roomCode, 'as', authUser.name);
+
+    // Make sure we're in the main room first
+    socket.emit('join', { roomCode });
+
     // Join the screen share room
     socket.emit('screenshare:join', {
       roomCode,
@@ -81,13 +86,16 @@ export default function ScreenShareSession({ roomCode, onClose }) {
   }
 
   function handlePresenterStarted({ userId, userName }) {
-    console.log('📺 Presenter started:', userName);
+    console.log('📺 Presenter started event received:', userName, 'userId:', userId, 'my userId:', authUser.id);
     setPresenter({ userId, userName });
     
     // If it's not us, we're now a viewer
     if (userId !== authUser.id) {
+      console.log('👁️ I am a viewer, showing join notification');
       setIsViewing(false); // Reset viewing state, user needs to click Join
       setError(null); // Clear any previous errors
+    } else {
+      console.log('🎥 I am the presenter');
     }
   }
 
@@ -169,11 +177,16 @@ export default function ScreenShareSession({ roomCode, onClose }) {
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
         console.log('✅ Local video stream set:', stream.getTracks());
+        console.log('Video track settings:', stream.getVideoTracks()[0]?.getSettings());
         
-        // Ensure video plays
-        localVideoRef.current.onloadedmetadata = () => {
-          localVideoRef.current.play().catch(e => console.error('Error playing local video:', e));
-        };
+        // Force video to play immediately
+        setTimeout(() => {
+          if (localVideoRef.current) {
+            localVideoRef.current.play()
+              .then(() => console.log('✅ Local video playing'))
+              .catch(e => console.error('❌ Error playing local video:', e));
+          }
+        }, 100);
       }
 
       // Notify server that we're presenting
@@ -253,19 +266,26 @@ export default function ScreenShareSession({ roomCode, onClose }) {
       // Handle incoming stream from presenter
       peerConnection.ontrack = (event) => {
         console.log('📺 Received remote track:', event.track.kind, event.streams);
+        console.log('Track enabled:', event.track.enabled, 'muted:', event.track.muted, 'readyState:', event.track.readyState);
+        
         if (remoteVideoRef.current && event.streams[0]) {
           remoteVideoRef.current.srcObject = event.streams[0];
           setConnectionStatus('connected');
           console.log('✅ Video stream set to remote video element');
           console.log('Stream tracks:', event.streams[0].getTracks());
+          console.log('Video element readyState:', remoteVideoRef.current.readyState);
           
-          // Ensure video plays
-          remoteVideoRef.current.onloadedmetadata = () => {
-            console.log('📺 Video metadata loaded, playing...');
-            remoteVideoRef.current.play()
-              .then(() => console.log('✅ Video playing'))
-              .catch(e => console.error('❌ Error playing video:', e));
-          };
+          // Force video to play
+          setTimeout(() => {
+            if (remoteVideoRef.current) {
+              remoteVideoRef.current.play()
+                .then(() => {
+                  console.log('✅ Remote video playing');
+                  console.log('Video dimensions:', remoteVideoRef.current.videoWidth, 'x', remoteVideoRef.current.videoHeight);
+                })
+                .catch(e => console.error('❌ Error playing remote video:', e));
+            }
+          }, 100);
         }
       };
 
@@ -537,7 +557,18 @@ export default function ScreenShareSession({ roomCode, onClose }) {
 
         {isSharing && !error && (
           <div className="w-full max-w-6xl">
-            <h3 className="text-white text-xl mb-4">Your Screen (Preview)</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white text-xl">Your Screen (Preview)</h3>
+              <div className="text-sm text-gray-400">
+                {streamRef.current && (
+                  <span>
+                    Tracks: {streamRef.current.getTracks().length} | 
+                    Video: {streamRef.current.getVideoTracks()[0]?.enabled ? '✅' : '❌'} | 
+                    Peers: {peerConnectionsRef.current.size}
+                  </span>
+                )}
+              </div>
+            </div>
             <video
               ref={localVideoRef}
               autoPlay
@@ -547,6 +578,11 @@ export default function ScreenShareSession({ roomCode, onClose }) {
               className="w-full rounded-lg shadow-2xl bg-black min-h-[400px]"
               style={{ maxHeight: '70vh' }}
             />
+            {localVideoRef.current?.videoWidth === 0 && (
+              <div className="text-yellow-400 text-center mt-2">
+                ⚠️ Video not loading - Check browser console for errors
+              </div>
+            )}
           </div>
         )}
 
