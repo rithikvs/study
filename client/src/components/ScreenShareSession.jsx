@@ -188,13 +188,14 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         } catch (err) {
           console.log('getDisplayMedia error:', err.name, err.message);
           
-          // User cancelled or permission denied - don't try fallback
+          // User cancelled - don't try fallback
           if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-            throw err;
+            setError('Screen sharing permission denied. Please allow access and try again.');
+            return;
           }
           
-          // NotSupported or other error
-          console.log('Screen sharing not supported');
+          // NotSupported or other error - try camera on mobile
+          console.log('Screen sharing not supported, will try camera fallback');
           stream = null;
         }
       }
@@ -217,6 +218,10 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
           setCurrentFacingMode('environment');
         } catch (camErr) {
           console.error('Camera access error:', camErr);
+          if (camErr.name === 'NotAllowedError' || camErr.name === 'PermissionDeniedError') {
+            setError('Camera permission denied. Please allow camera access in your browser settings and try again.');
+            return;
+          }
           stream = null;
         }
       }
@@ -225,7 +230,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       if (!stream) {
         console.log('⚠️ No sharing method available on this device');
         const errorMsg = isMobile 
-          ? 'Unable to share. Please allow camera/screen access. For best results, use Chrome on Android (v72+).'
+          ? 'Unable to access camera or screen. Please check your browser permissions and try again. Camera sharing is supported on most mobile browsers.'
           : 'Screen sharing is not supported. Please use Chrome, Firefox, Edge, or Safari.';
         setError(errorMsg);
         return;
@@ -753,11 +758,11 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
               <p className="text-sm text-blue-300">
                 💻 <strong>Desktop:</strong> Full screen sharing<br/>
                 📱 <strong>Android Chrome 72+:</strong> Screen sharing<br/>
-                📱 <strong>Other Mobile:</strong> Camera sharing (front/back)<br/>
-                👁️ <strong>All Devices:</strong> Can view shared screens
+                📱 <strong>Mobile (iOS/Others):</strong> Camera sharing - share documents/notes via camera<br/>
+                👁️ <strong>All Devices:</strong> Can view shared screens & cameras
               </p>
               <p className="text-xs text-gray-400 mt-2">
-                Click "Start Sharing" - will use best available method for your device
+                ✨ Mobile tip: Use back camera to share documents, then switch to front camera if needed
               </p>
             </div>
           </div>
