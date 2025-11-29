@@ -159,23 +159,27 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       
       // Check device type
       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const isAndroid = /Android/i.test(navigator.userAgent);
       
-      // First, try getDisplayMedia (works on desktop and newer Android Chrome)
+      console.log('📱 Device detected:', { isMobile, isAndroid, userAgent: navigator.userAgent });
+      
+      // Try screen sharing for all devices (desktop and mobile)
       if (navigator.mediaDevices?.getDisplayMedia) {
         try {
-          console.log('🖥️ Attempting screen share with getDisplayMedia...');
+          console.log('🖥️ Attempting screen share...');
           
-          // Different constraints for mobile vs desktop
           const constraints = isMobile ? {
             video: {
+              displaySurface: 'monitor', // Request screen instead of window
               width: { ideal: 1280, max: 1920 },
               height: { ideal: 720, max: 1080 },
-              frameRate: { ideal: 15, max: 30 },
+              frameRate: { ideal: 30 },
             },
             audio: false,
           } : {
             video: {
               cursor: 'always',
+              displaySurface: 'monitor',
               width: { ideal: 1920 },
               height: { ideal: 1080 },
               frameRate: { ideal: 30 },
@@ -184,54 +188,41 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
           };
           
           stream = await navigator.mediaDevices.getDisplayMedia(constraints);
-          console.log('✅ Screen share started successfully');
+          console.log('✅ Screen sharing started successfully');
         } catch (err) {
-          console.log('getDisplayMedia error:', err.name, err.message);
+          console.log('Screen share error:', err.name, err.message);
           
-          // User cancelled - don't try fallback
           if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-            setError('Screen sharing permission denied. Please allow access and try again.');
+            setError('❌ Screen sharing permission denied.\n\nPlease allow screen sharing when prompted and try again.');
             return;
           }
           
-          // NotSupported or other error - try camera on mobile
-          console.log('Screen sharing not supported, will try camera fallback');
-          stream = null;
-        }
-      }
-      
-      // If no stream yet, try camera as fallback for mobile
-      if (!stream && isMobile && navigator.mediaDevices?.getUserMedia) {
-        try {
-          console.log('📱 Trying camera fallback for mobile...');
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              facingMode: 'environment', // Back camera first
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
-              frameRate: { ideal: 30 },
-            },
-            audio: false,
-          });
-          console.log('✅ Camera sharing started (mobile fallback)');
-          setIsCameraMode(true);
-          setCurrentFacingMode('environment');
-        } catch (camErr) {
-          console.error('Camera access error:', camErr);
-          if (camErr.name === 'NotAllowedError' || camErr.name === 'PermissionDeniedError') {
-            setError('Camera permission denied. Please allow camera access in your browser settings and try again.');
+          // If not supported, show specific error
+          if (err.name === 'NotSupportedError' || err.name === 'NotFoundError') {
+            const mobileError = isMobile 
+              ? '📱 Mobile Screen Sharing Not Available\n\nYour browser doesn\'t support screen sharing yet.\n\nOptions:\n• Use Chrome browser on Android 72+ (recommended)\n• Update your Samsung Internet browser\n• Try Chrome or Firefox latest version\n\nNote: iOS Safari doesn\'t support screen sharing.'
+              : '🖥️ Screen sharing not supported in this browser.\n\nPlease use:\n• Chrome (recommended)\n• Firefox\n• Edge\n• Safari on macOS';
+            setError(mobileError);
             return;
           }
+          
           stream = null;
         }
+      } else {
+        // getDisplayMedia not available at all
+        const noSupportError = isMobile
+          ? '📱 Screen Sharing Not Supported\n\nYour mobile browser doesn\'t support screen sharing.\n\nPlease:\n• Use Chrome on Android 72 or newer\n• Update your browser to the latest version\n• Try Samsung Internet 13.0 or newer\n\nNote: iOS doesn\'t support mobile screen sharing.'
+          : '🖥️ Screen sharing not available.\n\nPlease use a modern browser:\n• Chrome\n• Firefox\n• Edge\n• Safari';
+        setError(noSupportError);
+        return;
       }
       
       // If still no stream, show error
       if (!stream) {
-        console.log('⚠️ No sharing method available on this device');
+        console.log('⚠️ No screen sharing available');
         const errorMsg = isMobile 
-          ? 'Unable to access camera or screen. Please check your browser permissions and try again. Camera sharing is supported on most mobile browsers.'
-          : 'Screen sharing is not supported. Please use Chrome, Firefox, Edge, or Safari.';
+          ? '📱 Unable to Start Screen Sharing\n\nFor Samsung/Android:\n• Use Chrome browser (v72 or newer)\n• Make sure "Share your screen" permission is allowed\n• Some Android versions need browser updates\n• Samsung Internet 13.0+ may work\n\nNote: Not all mobile browsers support screen sharing yet.'
+          : '🖥️ Screen Sharing Failed\n\nPlease:\n• Use Chrome, Firefox, or Edge browser\n• Allow screen sharing permission\n• Make sure you selected a screen/window to share';
         setError(errorMsg);
         return;
       }
@@ -736,15 +727,17 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       {/* Video Display Area */}
       <div className="flex-1 overflow-auto bg-slate-900 flex items-center justify-center p-4 md:p-8">
         {error && (
-          <div className="text-center max-w-md">
+          <div className="text-center max-w-lg px-4">
             <div className="text-red-400 text-6xl mb-4">⚠️</div>
-            <h3 className="text-red-400 text-xl mb-2">Error</h3>
-            <p className="text-gray-300">{error}</p>
+            <h3 className="text-red-400 text-xl mb-3">Unable to Start Sharing</h3>
+            <div className="text-gray-300 text-left bg-slate-800 rounded-lg p-4 mb-4 whitespace-pre-line">
+              {error}
+            </div>
             <button
               onClick={() => setError(null)}
-              className="mt-4 px-6 py-2 bg-slate-700 rounded-lg hover:bg-slate-600"
+              className="px-6 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 font-medium"
             >
-              Dismiss
+              Try Again
             </button>
           </div>
         )}
@@ -755,15 +748,21 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
             <h3 className="text-2xl mb-2">No active screen share</h3>
             <p className="text-gray-400 mb-4">Click "Start Sharing" to share with the room</p>
             <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-4 mt-4">
-              <p className="text-sm text-blue-300">
-                💻 <strong>Desktop:</strong> Full screen sharing<br/>
-                📱 <strong>Android Chrome 72+:</strong> Screen sharing<br/>
-                📱 <strong>Mobile (iOS/Others):</strong> Camera sharing - share documents/notes via camera<br/>
-                👁️ <strong>All Devices:</strong> Can view shared screens & cameras
+              <p className="text-sm text-blue-300 mb-3">
+                💻 <strong>Desktop:</strong> Full screen sharing with drawing tools<br/>
+                📱 <strong>Mobile:</strong> Screen sharing (Android Chrome 72+)
               </p>
-              <p className="text-xs text-gray-400 mt-2">
-                ✨ Mobile tip: Use back camera to share documents, then switch to front camera if needed
-              </p>
+              <div className="bg-slate-800/50 rounded p-3 text-xs text-gray-300">
+                <p className="font-semibold text-green-400 mb-2">📱 For Samsung/Android Users:</p>
+                <p className="mb-1">✅ Use Chrome browser (recommended)</p>
+                <p className="mb-1">✅ Update to latest Chrome version</p>
+                <p className="mb-1">✅ Click "Start Sharing" below</p>
+                <p className="mb-1">✅ Select "Your entire screen" when prompted</p>
+                <p className="mb-2">✅ Tap "Start now" or "Share"</p>
+                <p className="text-yellow-300 text-xs">
+                  ⚠️ If screen sharing doesn't work, your browser may not support it yet. Try updating Chrome or using a desktop computer.
+                </p>
+              </div>
             </div>
           </div>
         )}
