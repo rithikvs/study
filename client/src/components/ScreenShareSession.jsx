@@ -596,21 +596,79 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       // Handle incoming stream
       peerConnection.ontrack = (event) => {
         addDebugLog('📺 TRACK RECEIVED: ' + event.track.kind);
+        console.log('📺 Full track event:', {
+          trackKind: event.track.kind,
+          trackId: event.track.id,
+          trackEnabled: event.track.enabled,
+          trackReadyState: event.track.readyState,
+          streamCount: event.streams.length,
+          streamId: event.streams[0]?.id
+        });
+        
         if (remoteVideoRef.current && event.streams[0]) {
-          addDebugLog('🎬 Setting video stream');
-          remoteVideoRef.current.srcObject = event.streams[0];
+          addDebugLog('🎬 Attaching stream to video element');
+          const stream = event.streams[0];
+          remoteVideoRef.current.srcObject = stream;
+          
+          // Set video properties for mobile
+          remoteVideoRef.current.playsInline = true;
+          remoteVideoRef.current.muted = false;
+          remoteVideoRef.current.controls = false;
+          
+          addDebugLog('✅ Stream attached! Tracks: ' + stream.getTracks().length);
           setConnectionStatus('connected');
-          addDebugLog('✅ CONNECTED! Stream attached');
           setError(null);
           
-          // Play video with retries
-          const playVideo = (attempt = 1) => {
-            if (!remoteVideoRef.current || attempt > 3) return;
-            remoteVideoRef.current.play()
-              .then(() => addDebugLog('▶️ Video playing'))
-              .catch(() => setTimeout(() => playVideo(attempt + 1), 300));
+          // Monitor track state changes
+          stream.getTracks().forEach(track => {
+            addDebugLog('📹 Track state: ' + track.readyState);
+            track.onended = () => {
+              addDebugLog('⚠️ Track ENDED');
+              setError('📺 Stream ended by presenter');
+            };
+            track.onmute = () => {
+              addDebugLog('⚠️ Track MUTED');
+            };
+            track.onunmute = () => {
+              addDebugLog('✅ Track UNMUTED');
+            };
+          });
+          
+          // Monitor stream state
+          stream.onremovetrack = () => {
+            addDebugLog('⚠️ Track removed from stream');
           };
-          setTimeout(() => playVideo(), 100);
+          
+          stream.onaddtrack = () => {
+            addDebugLog('✅ Track added to stream');
+          };
+          
+          // Try to play video immediately
+          const tryPlay = async () => {
+            try {
+              addDebugLog('▶️ Attempting video playback...');
+              await remoteVideoRef.current.play();
+              addDebugLog('✅ Video playing successfully!');
+            } catch (playErr) {
+              addDebugLog('⚠️ Autoplay blocked: ' + playErr.name);
+              console.warn('Video play failed:', playErr);
+              // Show tap-to-play message
+              if (isMobileDevice) {
+                setError('👆 Tap the video to start playback');
+              }
+            }
+          };
+          
+          // Wait for video to have enough data
+          remoteVideoRef.current.onloadedmetadata = () => {
+            addDebugLog('📊 Video metadata loaded');
+            tryPlay();
+          };
+          
+          // Also try immediately
+          setTimeout(tryPlay, 100);
+        } else {
+          addDebugLog('❌ No video element or stream!');
         }
       };
 
@@ -635,11 +693,25 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       // Monitor connection state
       let hasRetried = false; // Prevent multiple retries
       peerConnection.onconnectionstatechange = async () => {
-        addDebugLog('🔌 Connection: ' + peerConnection.connectionState);
-        if (peerConnection.connectionState === 'connected') {
+        const state = peerConnection.connectionState;
+        addDebugLog('🔌 Connection: ' + state);
+        console.log('🔌 Full connection state:', state, {
+          iceConnectionState: peerConnection.iceConnectionState,
+          iceGatheringState: peerConnection.iceGatheringState,
+          signalingState: peerConnection.signalingState
+        });
+        
+        if (state === 'connected') {
+          addDebugLog('✅ CONNECTED successfully!');
           setConnectionStatus('connected');
           setError(null);
-        } else if (peerConnection.connectionState === 'failed' && !hasRetried) {
+        } else if (state === 'connecting') {
+          addDebugLog('🔄 Connecting...');
+        } else if (state === 'disconnected') {
+          addDebugLog('⚠️ DISCONNECTED - waiting for reconnection');
+          setConnectionStatus('reconnecting');
+          setError('⚠️ Connection lost, reconnecting...');
+        } else if (state === 'failed' && !hasRetried) {
           hasRetried = true;
           addDebugLog('❌ Connection FAILED - retrying with TURN relay...');
           setConnectionStatus('reconnecting');
@@ -869,8 +941,31 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
             muted: track.muted,
             id: track.id
           });
+          
+          // Monitor track state
+          track.onended = () => {
+            console.log('⚠️ Presenter track ended for viewer:', userName);
+          };
+          track.onmute = () => {
+            console.log('⚠️ Presenter track muted for viewer:', userName);
+          };
+          
           const sender = peerConnection.addTrack(track, streamRef.current);
           console.log('Track added, sender:', sender);
+          
+          // Verify track is being sent
+          setTimeout(() => {
+            sender.getStats().then(stats => {
+              stats.forEach(report => {
+                if (report.type === 'outbound-rtp') {
+                  console.log('📊 Sending stats to', userName, ':', {
+                    bytesSent: report.bytesSent,
+                    packetsSent: report.packetsSent
+                  });
+                }
+              });
+            });
+          }, 3000);
         });
 
         // Handle ICE candidates
