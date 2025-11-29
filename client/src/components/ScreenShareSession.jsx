@@ -103,15 +103,9 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   function handlePresenterStarted({ userId, userName }) {
     console.log('📺 Presenter started event received:', userName, 'userId:', userId, 'my userId:', authUser.id);
     setPresenter({ userId, userName });
-    
-    // If it's not us, we're now a viewer
-    if (userId !== authUser.id) {
-      console.log('👁️ I am a viewer, showing join notification');
-      setIsViewing(false); // Reset viewing state, user needs to click Join
-      setError(null); // Clear any previous errors
-    } else {
-      console.log('🎥 I am the presenter');
-    }
+    setIsViewing(false); // Reset viewing state for everyone
+    setError(null); // Clear any previous errors
+    console.log(userId === authUser.id ? '🎥 I am the presenter' : '👁️ I am a viewer');
   }
 
   function handlePresenterStopped({ userId }) {
@@ -685,7 +679,6 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
               autoPlay
               playsInline
               muted
-              controls
               webkit-playsinline="true"
               className="w-full rounded-lg shadow-2xl bg-black min-h-[200px] md:min-h-[400px]"
               style={{ maxHeight: '70vh', objectFit: 'contain' }}
@@ -707,7 +700,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
               ref={presenter?.userId === authUser.id ? localVideoRef : remoteVideoRef}
               autoPlay
               playsInline
-              controls
+              muted={presenter?.userId === authUser.id}
               webkit-playsinline="true"
               className="w-full rounded-lg shadow-2xl bg-black min-h-[200px] md:min-h-[400px]"
               style={{ maxHeight: '70vh', objectFit: 'contain' }}
