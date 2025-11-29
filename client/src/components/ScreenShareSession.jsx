@@ -658,11 +658,11 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
           </div>
         )}
 
-        {isSharing && !error && (
+        {(isSharing || (presenter?.userId === authUser.id && isViewing)) && !error && (
           <div className="w-full max-w-6xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-white text-xl">
-                {isCameraMode ? `📱 Camera (${currentFacingMode === 'user' ? 'Front' : 'Back'})` : 'Your Screen (Preview)'}
+                {isCameraMode ? `📱 Camera (${currentFacingMode === 'user' ? 'Front' : 'Back'})` : (isViewing ? 'Viewing Your Screen' : 'Your Screen (Preview)')}
               </h3>
               <div className="text-sm text-gray-400">
                 {streamRef.current && (
@@ -683,24 +683,16 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
               className="w-full rounded-lg shadow-2xl bg-black min-h-[200px] md:min-h-[400px]"
               style={{ maxHeight: '70vh', objectFit: 'contain' }}
             />
-            {localVideoRef.current?.videoWidth === 0 && (
-              <div className="text-yellow-400 text-center mt-2">
-                ⚠️ Video not loading - Check browser console for errors
-              </div>
-            )}
           </div>
         )}
 
-        {isViewing && !isSharing && !error && (
+        {isViewing && !isSharing && presenter?.userId !== authUser.id && !error && (
           <div className="w-full max-w-6xl">
-            <h3 className="text-white text-xl mb-4">
-              {presenter?.userId === authUser.id ? 'Viewing Your Screen' : `Viewing: ${presenter?.userName}'s Screen`}
-            </h3>
+            <h3 className="text-white text-xl mb-4">Viewing: {presenter?.userName}'s Screen</h3>
             <video
-              ref={presenter?.userId === authUser.id ? localVideoRef : remoteVideoRef}
+              ref={remoteVideoRef}
               autoPlay
               playsInline
-              muted={presenter?.userId === authUser.id}
               webkit-playsinline="true"
               className="w-full rounded-lg shadow-2xl bg-black min-h-[200px] md:min-h-[400px]"
               style={{ maxHeight: '70vh', objectFit: 'contain' }}
