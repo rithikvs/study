@@ -117,7 +117,7 @@ export default function ScreenShareSession({ roomCode, onClose }) {
       
       // Check if screen sharing is supported
       if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-        setError('Screen sharing is not supported on this device/browser. Please use Chrome, Firefox, or Edge on desktop.');
+        setError('Screen sharing is only available on desktop browsers (Chrome, Firefox, Edge, Safari). However, you can still join to view others\' shared screens!');
         return;
       }
 
@@ -125,7 +125,6 @@ export default function ScreenShareSession({ roomCode, onClose }) {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           cursor: 'always',
-          displaySurface: 'monitor',
           width: { ideal: 1920 },
           height: { ideal: 1080 },
           frameRate: { ideal: 30 },
@@ -158,9 +157,9 @@ export default function ScreenShareSession({ roomCode, onClose }) {
       if (err.name === 'NotAllowedError') {
         setError('Screen sharing permission denied. Please allow screen access and try again.');
       } else if (err.name === 'NotSupportedError') {
-        setError('Screen sharing is not supported on this device. Please use a desktop browser.');
+        setError('Screen sharing (presenting) is only available on desktop browsers. You can still join to view others\' screens!');
       } else {
-        setError('Failed to start screen sharing. Please try again.');
+        setError('Failed to start screen sharing. Please try again or use a desktop browser to share.');
       }
     }
   }
@@ -445,11 +444,18 @@ export default function ScreenShareSession({ roomCode, onClose }) {
         )}
 
         {!isSharing && !presenter && !error && (
-          <div className="text-white text-center">
+          <div className="text-white text-center max-w-lg px-4">
             <div className="text-6xl mb-4">📺</div>
             <h3 className="text-2xl mb-2">No active screen share</h3>
             <p className="text-gray-400 mb-4">Click "Start Sharing" to share your screen with the room</p>
-            <p className="text-sm text-gray-500">Desktop browsers recommended for best experience</p>
+            <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-4 mt-4">
+              <p className="text-sm text-blue-300">
+                📱 <strong>Mobile users:</strong> You can join to view shared screens, but screen sharing (presenting) requires a desktop browser.
+              </p>
+              <p className="text-xs text-gray-400 mt-2">
+                💻 Desktop: Chrome, Firefox, Edge, Safari supported
+              </p>
+            </div>
           </div>
         )}
 
