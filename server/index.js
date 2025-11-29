@@ -304,6 +304,26 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('screenshare:connection-error', ({ roomCode, toUserId, error }) => {
+    try {
+      if (!roomCode || !toUserId) return;
+      console.log(`❌ Connection error for ${toUserId} in room ${roomCode}:`, error);
+      
+      // Find the socket of the target user and send error
+      const roomSockets = io.sockets.adapter.rooms.get(roomCode);
+      if (roomSockets) {
+        roomSockets.forEach(socketId => {
+          const targetSocket = io.sockets.sockets.get(socketId);
+          if (targetSocket && targetSocket.data?.userId === toUserId) {
+            targetSocket.emit('screenshare:connection-error', { error });
+          }
+        });
+      }
+    } catch (err) {
+      console.error('screenshare:connection-error handler error', err);
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('Socket disconnected:', socket.id);
   });

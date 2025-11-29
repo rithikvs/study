@@ -76,6 +76,12 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
     socket.on('screenshare:answer', handleAnswer);
     socket.on('screenshare:ice-candidate', handleIceCandidate);
     socket.on('screenshare:draw', handleRemoteDrawing);
+    socket.on('screenshare:connection-error', ({ error }) => {
+      console.error('❌ Connection error from presenter:', error);
+      setError('❌ ' + error);
+      setConnectionStatus('disconnected');
+      setIsViewing(false);
+    });
 
     return () => {
       cleanup();
@@ -90,6 +96,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       socket.off('screenshare:answer', handleAnswer);
       socket.off('screenshare:ice-candidate', handleIceCandidate);
       socket.off('screenshare:draw', handleRemoteDrawing);
+      socket.off('screenshare:connection-error');
     };
   }, [roomCode, authUser]);
 
@@ -470,9 +477,19 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
 
       console.log('👁️ Requested to join viewing from', presenter.userName);
 
+      // Set a timeout for connection
+      setTimeout(() => {
+        if (connectionStatus === 'connecting') {
+          console.log('⏰ Connection timeout');
+          setError('⏱️ Connection Timeout\n\nUnable to connect to presenter.\n\nTry these steps:\n• Click "View" button again\n• Ask presenter to stop and restart sharing\n• Check your internet connection\n• Refresh the page and try again');
+          setConnectionStatus('disconnected');
+          setIsViewing(false);
+        }
+      }, 15000); // 15 second timeout
+
     } catch (err) {
       console.error('Error joining viewing:', err);
-      setError('Failed to join screen sharing. Please try again.');
+      setError('❌ Failed to Connect\n\nUnable to join screen sharing.\n\nPlease try:\n• Click "View" again\n• Check your internet connection\n• Refresh the page');
       setConnectionStatus('disconnected');
       setIsViewing(false);
     }
@@ -528,12 +545,31 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
 
       // Monitor connection state
       peerConnection.onconnectionstatechange = () => {
-        console.log('Connection state:', peerConnection.connectionState);
+        console.log('Viewer connection state:', peerConnection.connectionState);
         if (peerConnection.connectionState === 'connected') {
           setConnectionStatus('connected');
+          setError(null); // Clear any errors
         } else if (peerConnection.connectionState === 'failed') {
           setConnectionStatus('disconnected');
-          setError('Connection failed. Please try joining again.');
+          setIsViewing(false);
+          setError('🔴 Connection Failed\n\nUnable to connect to presenter\'s screen.\n\nTry these steps:\n1. Click "View" button again\n2. Ask presenter to restart sharing\n3. Check your internet connection\n4. Try refreshing the page');
+        } else if (peerConnection.connectionState === 'disconnected') {
+          console.log('⚠️ Connection disconnected');
+          setConnectionStatus('disconnected');
+        }
+      };
+
+      // Add error handler
+      peerConnection.onicecandidateerror = (event) => {
+        console.error('ICE candidate error:', event);
+      };
+
+      // Monitor ICE connection state
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log('ICE connection state:', peerConnection.iceConnectionState);
+        if (peerConnection.iceConnectionState === 'failed') {
+          console.error('ICE connection failed');
+          setError('🔴 Network Connection Failed\n\nUnable to establish connection.\n\nThis might be due to:\n• Firewall blocking connection\n• Network restrictions\n• Internet connection issues\n\nTry:\n• Check your internet connection\n• Try a different network\n• Contact your network administrator');
         }
       };
 
@@ -549,8 +585,10 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       });
 
     } catch (err) {
-      console.error('Error handling offer:', err);
-      setError('Failed to connect. Please try again.');
+      console.error('❌ Error handling offer:', err);
+      setError('❌ Connection Setup Failed\n\nUnable to establish connection with presenter.\n\nError: ' + err.message + '\n\nPlease:\n• Click "View" again\n• Ask presenter to restart sharing\n• Refresh the page and try again');
+      setConnectionStatus('disconnected');
+      setIsViewing(false);
     }
   }
 
@@ -639,7 +677,13 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         });
 
       } catch (err) {
-        console.error('Error creating offer for viewer:', err);
+        console.error('❌ Error creating offer for viewer:', userName, err);
+        // Notify the viewer that connection failed
+        socket.emit('screenshare:connection-error', {
+          roomCode,
+          toUserId: userId,
+          error: 'Presenter failed to create connection. Please try again.'
+        });
       }
     }
 
