@@ -166,20 +166,15 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       // Try screen sharing for all devices (desktop and mobile)
       if (navigator.mediaDevices?.getDisplayMedia) {
         try {
-          console.log('🖥️ Attempting screen share...');
+          console.log('🖥️ Attempting screen share...', { isMobile, isAndroid });
           
+          // Use simpler constraints for mobile to increase compatibility
           const constraints = isMobile ? {
-            video: {
-              displaySurface: 'monitor', // Request screen instead of window
-              width: { ideal: 1280, max: 1920 },
-              height: { ideal: 720, max: 1080 },
-              frameRate: { ideal: 30 },
-            },
+            video: true, // More permissive for mobile browsers
             audio: false,
           } : {
             video: {
               cursor: 'always',
-              displaySurface: 'monitor',
               width: { ideal: 1920 },
               height: { ideal: 1080 },
               frameRate: { ideal: 30 },
@@ -187,6 +182,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
             audio: false,
           };
           
+          console.log('📋 Using constraints:', constraints);
           stream = await navigator.mediaDevices.getDisplayMedia(constraints);
           console.log('✅ Screen sharing started successfully');
         } catch (err) {
@@ -200,7 +196,16 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
           // If not supported, show specific error
           if (err.name === 'NotSupportedError' || err.name === 'NotFoundError') {
             const mobileError = isMobile 
-              ? '📱 Mobile Screen Sharing Not Available\n\nYour browser doesn\'t support screen sharing yet.\n\nOptions:\n• Use Chrome browser on Android 72+ (recommended)\n• Update your Samsung Internet browser\n• Try Chrome or Firefox latest version\n\nNote: iOS Safari doesn\'t support screen sharing.'
+              ? '📱 Screen Sharing Not Available\n\n' +
+                'Your mobile browser doesn\'t support screen sharing.\n\n' +
+                '✅ Try these steps:\n' +
+                '1. Open Chrome browser (not Chrome Custom Tab)\n' +
+                '2. Type chrome://version in address bar\n' +
+                '3. Check if version is 72 or higher\n' +
+                '4. If lower, update Chrome from Play Store\n' +
+                '5. Come back and try again\n\n' +
+                '💡 Make sure you\'re using the actual Chrome app, not an in-app browser.\n\n' +
+                '❌ iOS Safari doesn\'t support mobile screen sharing.'
               : '🖥️ Screen sharing not supported in this browser.\n\nPlease use:\n• Chrome (recommended)\n• Firefox\n• Edge\n• Safari on macOS';
             setError(mobileError);
             return;
@@ -211,7 +216,16 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       } else {
         // getDisplayMedia not available at all
         const noSupportError = isMobile
-          ? '📱 Screen Sharing Not Supported\n\nYour mobile browser doesn\'t support screen sharing.\n\nPlease:\n• Use Chrome on Android 72 or newer\n• Update your browser to the latest version\n• Try Samsung Internet 13.0 or newer\n\nNote: iOS doesn\'t support mobile screen sharing.'
+          ? '📱 Screen Sharing API Not Found\n\n' +
+            'Your browser doesn\'t have screen sharing support.\n\n' +
+            '✅ Fix this:\n' +
+            '1. Install/Open Chrome browser from Play Store\n' +
+            '2. Update Chrome to latest version\n' +
+            '3. Open this link directly in Chrome (not in-app browser)\n' +
+            '4. Check Chrome version: chrome://version\n' +
+            '   (Must be version 72 or higher)\n\n' +
+            '💡 If you clicked a link from WhatsApp/Instagram/etc, copy the link and paste it in Chrome app instead.\n\n' +
+            '❌ Note: iOS devices don\'t support screen sharing yet.'
           : '🖥️ Screen sharing not available.\n\nPlease use a modern browser:\n• Chrome\n• Firefox\n• Edge\n• Safari';
         setError(noSupportError);
         return;
@@ -221,7 +235,15 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       if (!stream) {
         console.log('⚠️ No screen sharing available');
         const errorMsg = isMobile 
-          ? '📱 Unable to Start Screen Sharing\n\nFor Samsung/Android:\n• Use Chrome browser (v72 or newer)\n• Make sure "Share your screen" permission is allowed\n• Some Android versions need browser updates\n• Samsung Internet 13.0+ may work\n\nNote: Not all mobile browsers support screen sharing yet.'
+          ? '📱 Unable to Start Screen Sharing\n\n' +
+            '🔍 Troubleshooting:\n' +
+            '1. Are you using Chrome browser? (Required)\n' +
+            '2. Did you deny the permission? Try again and allow\n' +
+            '3. Check Chrome version: Type chrome://version\n' +
+            '4. Update Chrome if version is below 72\n' +
+            '5. Restart Chrome and try again\n\n' +
+            '📱 Samsung Users: Chrome works better than Samsung Internet\n\n' +
+            '💡 Copy this URL and open directly in Chrome app if you\'re in an in-app browser.'
           : '🖥️ Screen Sharing Failed\n\nPlease:\n• Use Chrome, Firefox, or Edge browser\n• Allow screen sharing permission\n• Make sure you selected a screen/window to share';
         setError(errorMsg);
         return;
@@ -754,13 +776,17 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
               </p>
               <div className="bg-slate-800/50 rounded p-3 text-xs text-gray-300">
                 <p className="font-semibold text-green-400 mb-2">📱 For Samsung/Android Users:</p>
-                <p className="mb-1">✅ Use Chrome browser (recommended)</p>
-                <p className="mb-1">✅ Update to latest Chrome version</p>
-                <p className="mb-1">✅ Click "Start Sharing" below</p>
-                <p className="mb-1">✅ Select "Your entire screen" when prompted</p>
-                <p className="mb-2">✅ Tap "Start now" or "Share"</p>
-                <p className="text-yellow-300 text-xs">
-                  ⚠️ If screen sharing doesn't work, your browser may not support it yet. Try updating Chrome or using a desktop computer.
+                <p className="mb-1">✅ <strong>MUST use Chrome browser</strong> (not Samsung Internet or in-app browsers)</p>
+                <p className="mb-1">✅ Check Chrome version: type <code className="bg-slate-700 px-1 rounded">chrome://version</code> in address bar</p>
+                <p className="mb-1">✅ If version &lt; 72, update Chrome from Play Store</p>
+                <p className="mb-1">✅ Click "Start Sharing" button above</p>
+                <p className="mb-1">✅ Choose "Your entire screen" or "Phone screen"</p>
+                <p className="mb-2">✅ Tap "Start now" to begin sharing</p>
+                <p className="text-yellow-300 text-xs mb-2">
+                  ⚠️ <strong>Important:</strong> If you clicked a link from WhatsApp/Instagram/Facebook, the page might open in their in-app browser which doesn't support screen sharing. Copy the URL and paste it directly in Chrome app.
+                </p>
+                <p className="text-red-300 text-xs">
+                  ❌ iOS devices (iPhone/iPad) don't support screen sharing yet - this is a browser limitation.
                 </p>
               </div>
             </div>
