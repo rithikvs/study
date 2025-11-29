@@ -10,6 +10,8 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   const [presenter, setPresenter] = useState(autoJoinPresenter || null);
   const [error, setError] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
+  const [isCameraMode, setIsCameraMode] = useState(false);
+  const [currentFacingMode, setCurrentFacingMode] = useState('environment');
   
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -30,13 +32,16 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
 
   // Auto-join if presenter is already sharing
   useEffect(() => {
-    if (autoJoinPresenter && autoJoinPresenter.userId !== authUser?.id && !isViewing) {
+    if (autoJoinPresenter && autoJoinPresenter.userId !== authUser?.id && !isViewing && !isSharing) {
       console.log('🎯 Auto-joining presenter:', autoJoinPresenter.userName);
+      // Set presenter first
+      setPresenter(autoJoinPresenter);
+      // Then join viewing
       setTimeout(() => {
         joinViewing();
-      }, 500);
+      }, 800);
     }
-  }, [autoJoinPresenter]);
+  }, [autoJoinPresenter, authUser]);
 
   useEffect(() => {
     if (!roomCode || !authUser) return;
@@ -177,12 +182,33 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         }
       }
       
-      // If no stream yet, it means getDisplayMedia is not available or failed
-      // This can happen on older mobile browsers
+      // If no stream yet, try camera as fallback for mobile
+      if (!stream && isMobile && navigator.mediaDevices?.getUserMedia) {
+        try {
+          console.log('📱 Trying camera fallback for mobile...');
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: 'environment', // Back camera first
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              frameRate: { ideal: 30 },
+            },
+            audio: false,
+          });
+          console.log('✅ Camera sharing started (mobile fallback)');
+          setIsCameraMode(true);
+          setCurrentFacingMode('environment');
+        } catch (camErr) {
+          console.error('Camera access error:', camErr);
+          stream = null;
+        }
+      }
+      
+      // If still no stream, show error
       if (!stream) {
-        console.log('⚠️ Screen sharing not available on this device');
+        console.log('⚠️ No sharing method available on this device');
         const errorMsg = isMobile 
-          ? 'Screen sharing is not supported on this device. Please use Chrome on Android (v72+) or a desktop browser.'
+          ? 'Unable to share. Please allow camera/screen access. For best results, use Chrome on Android (v72+).'
           : 'Screen sharing is not supported. Please use Chrome, Firefox, Edge, or Safari.';
         setError(errorMsg);
         return;
@@ -243,6 +269,51 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
 
     setIsSharing(false);
     setPresenter(null);
+    setIsCameraMode(false);
+  }
+
+  async function switchCamera() {
+    if (!isCameraMode || !streamRef.current) return;
+
+    try {
+      // Stop current stream
+      streamRef.current.getTracks().forEach(track => track.stop());
+
+      // Switch facing mode
+      const newFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+      
+      // Get new stream
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: newFacingMode,
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 30 },
+        },
+        audio: false,
+      });
+
+      streamRef.current = newStream;
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = newStream;
+      }
+
+      setCurrentFacingMode(newFacingMode);
+
+      // Update all peer connections with new track
+      const videoTrack = newStream.getVideoTracks()[0];
+      peerConnectionsRef.current.forEach((pc) => {
+        const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) {
+          sender.replaceTrack(videoTrack);
+        }
+      });
+
+      console.log('📱 Camera switched to:', newFacingMode);
+    } catch (err) {
+      console.error('Error switching camera:', err);
+      setError('Failed to switch camera');
+    }
   }
 
   async function joinViewing() {
@@ -492,12 +563,23 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
           )}
 
           {isSharing && (
-            <button
-              onClick={stopSharing}
-              className="px-6 py-2 bg-red-600 rounded-lg hover:bg-red-700 font-medium transition"
-            >
-              ⏹️ Stop Sharing
-            </button>
+            <>
+              {isCameraMode && (
+                <button
+                  onClick={switchCamera}
+                  className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 font-medium transition flex items-center gap-2"
+                  title="Switch Camera"
+                >
+                  🔄 Switch
+                </button>
+              )}
+              <button
+                onClick={stopSharing}
+                className="px-6 py-2 bg-red-600 rounded-lg hover:bg-red-700 font-medium transition"
+              >
+                ⏹️ Stop Sharing
+              </button>
+            </>
           )}
 
           {presenter && !isSharing && presenter.userId !== authUser.id && !isViewing && (
@@ -563,12 +645,13 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
             <p className="text-gray-400 mb-4">Click "Start Sharing" to share with the room</p>
             <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-4 mt-4">
               <p className="text-sm text-blue-300">
-                💻 <strong>Desktop:</strong> Full screen sharing support<br/>
-                📱 <strong>Android (Chrome 72+):</strong> Screen sharing available<br/>
-                📱 <strong>iOS/Safari:</strong> Not supported yet
+                💻 <strong>Desktop:</strong> Full screen sharing<br/>
+                📱 <strong>Android Chrome 72+:</strong> Screen sharing<br/>
+                📱 <strong>Other Mobile:</strong> Camera sharing (front/back)<br/>
+                👁️ <strong>All Devices:</strong> Can view shared screens
               </p>
               <p className="text-xs text-gray-400 mt-2">
-                All room members can join and view what you share
+                Click "Start Sharing" - will use best available method for your device
               </p>
             </div>
           </div>
@@ -577,7 +660,9 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         {isSharing && !error && (
           <div className="w-full max-w-6xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-white text-xl">Your Screen (Preview)</h3>
+              <h3 className="text-white text-xl">
+                {isCameraMode ? `📱 Camera (${currentFacingMode === 'user' ? 'Front' : 'Back'})` : 'Your Screen (Preview)'}
+              </h3>
               <div className="text-sm text-gray-400">
                 {streamRef.current && (
                   <span>
