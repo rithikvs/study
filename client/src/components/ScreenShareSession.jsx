@@ -317,9 +317,14 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       setError(null);
       setIsViewing(true);
       
-      // Allow presenter to view their own screen
+      // Allow presenter to view their own screen (just show local stream)
       if (presenter.userId === authUser.id) {
         setConnectionStatus('Viewing your own screen');
+        // Ensure local video is visible
+        if (localVideoRef.current && streamRef.current) {
+          localVideoRef.current.srcObject = streamRef.current;
+          localVideoRef.current.play().catch(e => console.error('Play error:', e));
+        }
         return;
       }
       
@@ -658,18 +663,21 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
           </div>
         )}
 
-        {(isSharing || (presenter?.userId === authUser.id && isViewing)) && !error && (
+        {/* Owner's screen view - shown when sharing OR when owner is viewing their own share */}
+        {((isSharing && !isViewing) || (presenter?.userId === authUser.id && isViewing)) && !error && (
           <div className="w-full max-w-6xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-white text-xl">
-                {isCameraMode ? `📱 Camera (${currentFacingMode === 'user' ? 'Front' : 'Back'})` : (isViewing ? 'Viewing Your Screen' : 'Your Screen (Preview)')}
+                {isViewing 
+                  ? (isCameraMode ? `📱 Viewing Your Camera (${currentFacingMode === 'user' ? 'Front' : 'Back'})` : '📺 Viewing Your Screen')
+                  : (isCameraMode ? `📱 Camera (${currentFacingMode === 'user' ? 'Front' : 'Back'})` : '🖥️ Your Screen (Sharing)')}
               </h3>
               <div className="text-sm text-gray-400">
                 {streamRef.current && (
                   <span>
                     Tracks: {streamRef.current.getTracks().length} | 
                     Video: {streamRef.current.getVideoTracks()[0]?.enabled ? '✅' : '❌'} | 
-                    Peers: {peerConnectionsRef.current.size}
+                    Viewers: {peerConnectionsRef.current.size}
                   </span>
                 )}
               </div>
