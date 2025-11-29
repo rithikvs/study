@@ -48,12 +48,11 @@ export default function FileViewer({ file, onClose }) {
             responseType: 'arraybuffer',
           });
 
-          console.log('PDF downloaded, size:', response.data.byteLength);
           const loadingTask = pdfjsLib.getDocument({ data: response.data });
           const pdf = await loadingTask.promise;
-          console.log('PDF loaded successfully, pages:', pdf.numPages);
           setPdfDoc(pdf);
           setTotalPages(pdf.numPages);
+          setCurrentPage(1);
           setLoading(false);
         } catch (err) {
           console.error('Failed to load PDF:', err);
@@ -169,10 +168,23 @@ export default function FileViewer({ file, onClose }) {
     const ctx = drawCanvas.getContext('2d');
     ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
 
+    // Helper to convert stored point to pixel coordinates for this canvas
+    function toPixelPoint(point) {
+      // Points saved in a normalized form will have x,y in [0,1]
+      // Legacy points may be absolute pixel values (>1). Detect and handle both.
+      if (!point) return point;
+      const w = drawCanvas.width;
+      const h = drawCanvas.height;
+      if (point.x <= 1 && point.y <= 1) {
+        return { x: point.x * w, y: point.y * h };
+      }
+      return { x: point.x, y: point.y };
+    }
+
     annotations.forEach((ann) => {
       ctx.strokeStyle = ann.color;
       ctx.lineWidth = ann.width;
-      
+
       // Highlighter uses butt cap for straight lines, others use round
       if (ann.type === 'highlighter') {
         ctx.lineCap = 'butt';
@@ -186,10 +198,12 @@ export default function FileViewer({ file, onClose }) {
 
       ctx.beginPath();
       ann.points.forEach((point, idx) => {
+        const p = toPixelPoint(point);
+        if (!p) return;
         if (idx === 0) {
-          ctx.moveTo(point.x, point.y);
+          ctx.moveTo(p.x, p.y);
         } else {
-          ctx.lineTo(point.x, point.y);
+          ctx.lineTo(p.x, p.y);
         }
       });
       ctx.stroke();
@@ -311,9 +325,21 @@ export default function FileViewer({ file, onClose }) {
         // Some annotations were erased, update on server
         try {
           await api.delete(`/annotations/${file._id}/${currentPage}`);
-          // Re-add remaining annotations
+          // Re-add remaining annotations (ensure points are normalized)
+          const canvas = drawCanvasRef.current;
           for (const ann of remainingAnnotations) {
-            await api.post(`/annotations/${file._id}/${currentPage}/draw`, ann);
+            const pts = ann.points.map(p => {
+              // If already normalized (<=1) keep as-is, else normalize
+              if (p.x <= 1 && p.y <= 1) return p;
+              return { x: p.x / canvas.width, y: p.y / canvas.height };
+            });
+            await api.post(`/annotations/${file._id}/${currentPage}/draw`, {
+              type: ann.type,
+              color: ann.color,
+              width: ann.width,
+              points: pts,
+              userName: ann.userName || authUser?.name || 'Anonymous',
+            });
           }
         } catch (err) {
           console.error('Failed to erase:', err);
@@ -322,11 +348,18 @@ export default function FileViewer({ file, onClose }) {
     } else {
       // Save annotation to backend (pen or highlighter)
       try {
+        // Normalize points to be resolution-independent (save as percentages)
+        const canvas = drawCanvasRef.current;
+        const normalized = currentStroke.map(p => ({ 
+          x: p.x / canvas.width, 
+          y: p.y / canvas.height 
+        }));
+
         await api.post(`/annotations/${file._id}/${currentPage}/draw`, {
           type: tool,
           color,
           width: tool === 'highlighter' ? highlighterSize : penSize,
-          points: currentStroke,
+          points: normalized,
           userName: authUser?.name || 'Anonymous',
         });
         // Socket will broadcast to all users

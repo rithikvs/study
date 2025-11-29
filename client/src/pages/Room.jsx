@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import FileViewer from '../components/FileViewer';
+import ScreenShare from '../components/ScreenShare';
 import api from '../lib/api';
 import socket from '../lib/socket';
 import { useApp } from '../context/AppContext';
@@ -466,7 +466,7 @@ export default function Room() {
                               onClick={() => openFile(file)}
                               className="text-xs px-3 py-1 bg-green-50 text-green-600 rounded hover:bg-green-100 font-medium"
                             >
-                              📂 Open
+                              📺 Screen Share
                             </button>
                             <button
                               onClick={() => downloadFile(file._id, file.originalName)}
@@ -526,9 +526,9 @@ export default function Room() {
         </div>
       )}
 
-      {/* File Viewer Modal */}
+      {/* Screen Share Modal */}
       {viewingFile && (
-        <FileViewer file={viewingFile} onClose={closeFile} />
+        <ScreenShare file={viewingFile} roomCode={roomCode} onClose={closeFile} />
       )}
     </div>
   );
