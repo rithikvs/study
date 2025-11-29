@@ -12,6 +12,15 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [isCameraMode, setIsCameraMode] = useState(false);
   const [currentFacingMode, setCurrentFacingMode] = useState('environment');
+  const [debugLog, setDebugLog] = useState([]);
+  
+  // Debug logger
+  const addDebugLog = (message) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = `[${timestamp}] ${message}`;
+    console.log('🔍', logEntry);
+    setDebugLog(prev => [...prev.slice(-20), logEntry]); // Keep last 20 logs
+  };
   
   // Drawing states
   const [isDrawing, setIsDrawing] = useState(false);
@@ -23,19 +32,22 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   const remoteVideoRef = useRef(null);
   const streamRef = useRef(null);
   const peerConnectionsRef = useRef(new Map()); // Map of userId -> RTCPeerConnection
+  const pendingCandidatesRef = useRef(new Map()); // Queue for ICE candidates
   const canvasRef = useRef(null);
   const drawingContextRef = useRef(null);
 
-  // WebRTC configuration with STUN and TURN servers for better connectivity
-  // TURN servers help mobile devices connect through NAT/firewalls
+  // Detect if mobile for forced TURN usage
+  const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
+  // WebRTC configuration - Force TURN on mobile for better connectivity
   const rtcConfig = {
     iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' },
-      { urls: 'stun:stun4.l.google.com:19302' },
-      // Free TURN servers for better mobile connectivity
+      // STUN servers for desktop
+      ...(!isMobileDevice ? [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+      ] : []),
+      // Multiple TURN servers for reliability
       {
         urls: 'turn:openrelay.metered.ca:80',
         username: 'openrelayproject',
@@ -50,11 +62,22 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         urls: 'turn:openrelay.metered.ca:443?transport=tcp',
         username: 'openrelayproject',
         credential: 'openrelayproject'
-      }
+      },
+      // Additional TURN server
+      {
+        urls: 'turn:numb.viagenie.ca',
+        username: 'webrtc@live.com',
+        credential: 'muazkh'
+      },
     ],
     iceCandidatePoolSize: 10,
-    iceTransportPolicy: 'all', // Try all connection methods
+    // Force TURN on mobile devices
+    iceTransportPolicy: isMobileDevice ? 'relay' : 'all',
+    bundlePolicy: 'max-bundle',
+    rtcpMuxPolicy: 'require',
   };
+  
+  console.log('📱 Device type:', isMobileDevice ? 'MOBILE' : 'DESKTOP', '| ICE Policy:', rtcConfig.iceTransportPolicy);
 
   // Auto-join when banner button is clicked
   useEffect(() => {
@@ -467,11 +490,33 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   }
 
   async function joinViewing() {
-    if (!presenter) return;
+    if (!presenter) {
+      addDebugLog('❌ No presenter found');
+      return;
+    }
 
     try {
+      addDebugLog('🚀 Starting joinViewing for: ' + presenter.userName);
+      addDebugLog('📡 Socket ID: ' + socket.id + ' | Connected: ' + socket.connected);
+      addDebugLog('👤 My User ID: ' + authUser.id + ' | Presenter ID: ' + presenter.userId);
+      addDebugLog('🏠 Room Code: ' + roomCode);
+      
+      // Ensure socket is connected
+      if (!socket.connected) {
+        addDebugLog('❌ Socket not connected! Reconnecting...');
+        socket.connect();
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        if (!socket.connected) {
+          addDebugLog('❌ Failed to reconnect socket');
+          setError('❌ Connection Error\n\nNot connected to server.\n\nPlease refresh the page and try again.');
+          return;
+        }
+        addDebugLog('✅ Socket reconnected');
+      }
+      
       setError(null);
       setIsViewing(true);
+      addDebugLog('🎬 Set isViewing = true');
       
       // Allow presenter to view their own screen (just show local stream)
       if (presenter.userId === authUser.id) {
@@ -485,15 +530,17 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       }
       
       setConnectionStatus('connecting');
+      addDebugLog('🔄 Status: connecting');
       
       // Request to view - presenter will send us an offer
+      addDebugLog('📤 Emitting screenshare:request-view');
       socket.emit('screenshare:request-view', {
         roomCode,
         userId: authUser.id,
         userName: authUser.name,
       });
-
-      console.log('👁️ Requested to join viewing from', presenter.userName);
+      addDebugLog('✅ Request-view emitted successfully');
+      addDebugLog('⏳ Waiting for offer from presenter...');
 
       // Set a timeout for connection with retry option
       const connectionTimeout = setTimeout(() => {
@@ -518,35 +565,44 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
 
   async function handleOffer({ offer, fromUserId, toUserId }) {
     // Only handle offers meant for us
-    if (toUserId !== authUser.id) return;
+    if (toUserId !== authUser.id) {
+      addDebugLog('⏭️ Offer not for me (for: ' + toUserId + ')');
+      return;
+    }
     
-    console.log('📥 Received offer from presenter:', fromUserId);
-    console.log('📋 Offer SDP type:', offer.type, 'SDP length:', offer.sdp?.length);
+    addDebugLog('📥 RECEIVED OFFER from: ' + fromUserId);
+    addDebugLog('📋 Offer type: ' + offer.type + ' | SDP length: ' + offer.sdp?.length);
     
     try {
       // Clean up any existing connection first
       const existingPc = peerConnectionsRef.current.get(fromUserId);
       if (existingPc) {
-        console.log('🧹 Cleaning up existing peer connection');
+        addDebugLog('🧹 Cleaning up existing connection');
         existingPc.close();
         peerConnectionsRef.current.delete(fromUserId);
       }
       
+      addDebugLog('🔨 Creating new RTCPeerConnection...');
+      addDebugLog('📋 ICE Policy: ' + rtcConfig.iceTransportPolicy);
       const peerConnection = new RTCPeerConnection(rtcConfig);
       peerConnectionsRef.current.set(fromUserId, peerConnection);
-      console.log('✅ Created new RTCPeerConnection');
+      addDebugLog('✅ RTCPeerConnection created');
+
+      // Set up all event handlers FIRST before setting remote description
+      addDebugLog('🔧 Setting up event handlers...');
 
       // Handle incoming stream from presenter
       peerConnection.ontrack = (event) => {
-        console.log('📺 Received remote track:', event.track.kind, event.streams);
-        console.log('Track enabled:', event.track.enabled, 'muted:', event.track.muted, 'readyState:', event.track.readyState);
+        addDebugLog('📺 ONTRACK EVENT! Track kind: ' + event.track.kind);
+        addDebugLog('Track state: enabled=' + event.track.enabled + ' muted=' + event.track.muted + ' ready=' + event.track.readyState);
+        addDebugLog('Streams count: ' + event.streams.length);
         
         if (remoteVideoRef.current && event.streams[0]) {
+          addDebugLog('🎬 Setting srcObject on video element');
           remoteVideoRef.current.srcObject = event.streams[0];
           setConnectionStatus('connected');
-          console.log('✅ Video stream set to remote video element');
-          console.log('Stream tracks:', event.streams[0].getTracks());
-          console.log('Video element readyState:', remoteVideoRef.current.readyState);
+          addDebugLog('✅ Connected! Video stream set');
+          addDebugLog('Stream ID: ' + event.streams[0].id + ' | Tracks: ' + event.streams[0].getTracks().length);
           
           // Aggressive video playback for mobile - multiple retry attempts
           const tryPlayVideo = (attempt = 1) => {
@@ -575,12 +631,15 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       // Handle ICE candidates
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
+          addDebugLog('🧊 Sending ICE candidate: ' + event.candidate.type);
           socket.emit('screenshare:ice-candidate', {
             roomCode,
             candidate: event.candidate,
             fromUserId: authUser.id,
             toUserId: fromUserId,
           });
+        } else {
+          addDebugLog('✅ All ICE candidates sent');
         }
       };
 
@@ -607,7 +666,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
 
       // Monitor ICE connection state
       peerConnection.oniceconnectionstatechange = () => {
-        console.log('📊 ICE connection state:', peerConnection.iceConnectionState);
+        addDebugLog('📊 ICE State: ' + peerConnection.iceConnectionState);
         if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
           console.log('✅ ICE connection established');
           setConnectionStatus('connected');
@@ -619,10 +678,27 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
           console.log('⚠️ ICE connection disconnected, waiting for reconnection...');
           setConnectionStatus('reconnecting');
         } else if (peerConnection.iceConnectionState === 'failed') {
-          console.error('❌ ICE connection failed');
-          setError('🔴 Network Connection Failed\n\nUnable to establish connection.\n\nThis might be due to:\n• Firewall blocking connection\n• Network restrictions\n• Internet connection issues\n\nTry:\n• Check your internet connection\n• Try a different network (switch WiFi/mobile data)\n• Ask presenter to restart sharing\n• Refresh the page and try again');
-          setConnectionStatus('disconnected');
-          setIsViewing(false);
+          addDebugLog('❌ ICE connection failed, attempting restart...');
+          // Try to restart ICE (async function)
+          (async () => {
+            try {
+              const offer = await peerConnection.createOffer({ iceRestart: true });
+              await peerConnection.setLocalDescription(offer);
+              socket.emit('screenshare:ice-restart', {
+                roomCode,
+                offer,
+                fromUserId: authUser.id,
+                toUserId: fromUserId,
+              });
+              addDebugLog('🔄 ICE restart offer sent');
+              setConnectionStatus('reconnecting');
+            } catch (restartErr) {
+              addDebugLog('❌ ICE restart failed: ' + restartErr.message);
+              setError('🔴 Network Connection Failed\n\nUnable to establish connection.\n\nThis might be due to:\n• Firewall blocking connection\n• Network restrictions\n• Internet connection issues\n\nTry:\n• Check your internet connection\n• Try a different network (switch WiFi/mobile data)\n• Ask presenter to restart sharing\n• Refresh the page and try again');
+              setConnectionStatus('disconnected');
+              setIsViewing(false);
+            }
+          })();
         }
       };
 
@@ -640,29 +716,44 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       };
 
       // Set remote description first (critical for mobile)
-      console.log('📝 Setting remote description...');
+      addDebugLog('📝 Step 1: Setting remote description...');
       await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-      console.log('✅ Remote description set successfully');
+      addDebugLog('✅ Remote description set');
+      
+      // Process any pending ICE candidates
+      const pendingCandidates = pendingCandidatesRef.current.get(fromUserId) || [];
+      if (pendingCandidates.length > 0) {
+        addDebugLog('🧊 Processing ' + pendingCandidates.length + ' pending candidates');
+        for (const candidate of pendingCandidates) {
+          try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch (err) {
+            addDebugLog('⚠️ Pending candidate error: ' + err.message);
+          }
+        }
+        pendingCandidatesRef.current.delete(fromUserId);
+        addDebugLog('✅ Pending candidates processed');
+      }
       
       // Create answer
-      console.log('📝 Creating answer...');
+      addDebugLog('📝 Step 2: Creating answer...');
       const answer = await peerConnection.createAnswer();
-      console.log('✅ Answer created:', answer.type);
+      addDebugLog('✅ Answer created: ' + answer.type);
       
       // Set local description
-      console.log('📝 Setting local description...');
+      addDebugLog('📝 Step 3: Setting local description...');
       await peerConnection.setLocalDescription(answer);
-      console.log('✅ Local description set successfully');
+      addDebugLog('✅ Local description set');
       
       // Send answer back to presenter
-      console.log('📤 Sending answer to presenter:', fromUserId);
+      addDebugLog('📤 Step 4: Sending answer to presenter');
       socket.emit('screenshare:answer', {
         roomCode,
         answer,
         fromUserId: authUser.id,
         toUserId: fromUserId,
       });
-      console.log('✅ Answer sent successfully');
+      addDebugLog('✅ Answer sent! Waiting for ICE candidates...');
 
     } catch (err) {
       console.error('❌ Error handling offer:', err);
@@ -714,19 +805,23 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
     }
     
     try {
-      // Check if remote description is set before adding candidate
-      if (!peerConnection.remoteDescription) {
-        console.log('⏳ Waiting for remote description before adding ICE candidate');
-        // Queue the candidate to be added later
-        setTimeout(() => handleIceCandidate({ candidate, fromUserId, toUserId }), 100);
+      // Check if remote description is set
+      if (!peerConnection.remoteDescription || peerConnection.signalingState !== 'stable') {
+        console.log('⏳ Queuing ICE candidate (waiting for stable state):', candidate.type || 'unknown');
+        // Store candidate in queue
+        if (!pendingCandidatesRef.current.has(fromUserId)) {
+          pendingCandidatesRef.current.set(fromUserId, []);
+        }
+        pendingCandidatesRef.current.get(fromUserId).push(candidate);
         return;
       }
       
-      console.log('🧊 Adding ICE candidate:', candidate.type || 'unknown type');
+      console.log('🧊 Adding ICE candidate:', candidate.type || 'unknown type', '| candidate:', candidate.candidate?.substring(0, 50));
       await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
       console.log('✅ ICE candidate added successfully');
     } catch (err) {
-      console.error('❌ Error adding ICE candidate:', err.message, err);
+      console.error('❌ Error adding ICE candidate:', err.message);
+      // Don't fail the connection for individual candidate errors
     }
   }
 
@@ -1061,10 +1156,24 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         {isViewing && !isSharing && presenter?.userId !== authUser.id && !error && (
           <div className="w-full max-w-6xl">
             <h3 className="text-white text-xl mb-4">Viewing: {presenter?.userName}'s Screen</h3>
-            <div className="bg-slate-800 p-2 rounded mb-2 text-sm text-gray-300">
-              📱 Connection Status: <span className={connectionStatus === 'connected' ? 'text-green-400 font-bold' : connectionStatus === 'connecting' ? 'text-yellow-400 animate-pulse' : connectionStatus === 'reconnecting' ? 'text-orange-400' : 'text-red-400'}>{connectionStatus}</span>
-              {connectionStatus === 'connecting' && <span className="ml-2 text-xs text-gray-400">• Establishing connection...</span>}
-              {connectionStatus === 'reconnecting' && <span className="ml-2 text-xs text-gray-400">• Reconnecting...</span>}
+            <div className="bg-slate-800 p-2 rounded mb-2 text-sm text-gray-300 flex items-center justify-between">
+              <div>
+                📱 Connection Status: <span className={connectionStatus === 'connected' ? 'text-green-400 font-bold' : connectionStatus === 'connecting' ? 'text-yellow-400 animate-pulse' : connectionStatus === 'reconnecting' ? 'text-orange-400' : 'text-red-400'}>{connectionStatus}</span>
+                {connectionStatus === 'connecting' && <span className="ml-2 text-xs text-gray-400">• Establishing connection...</span>}
+                {connectionStatus === 'reconnecting' && <span className="ml-2 text-xs text-gray-400">• Reconnecting...</span>}
+              </div>
+              {connectionStatus === 'connected' && (
+                <button
+                  onClick={() => {
+                    if (remoteVideoRef.current) {
+                      remoteVideoRef.current.play().catch(e => console.error('Play error:', e));
+                    }
+                  }}
+                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs"
+                >
+                  ▶️ Play
+                </button>
+              )}
             </div>
             <div className="relative">
               <video
@@ -1081,6 +1190,12 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
                 onLoadedMetadata={() => console.log('📺 Video metadata loaded')}
                 onPlay={() => console.log('▶️ Video playing')}
                 onError={(e) => console.error('❌ Video error:', e)}
+                onClick={() => {
+                  // Allow tap to play on mobile
+                  if (remoteVideoRef.current && remoteVideoRef.current.paused) {
+                    remoteVideoRef.current.play().catch(e => console.error('Play error:', e));
+                  }
+                }}
               />
               <canvas
                 ref={canvasRef}
@@ -1122,6 +1237,46 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
           </div>
         )}
       </div>
+
+      {/* Debug Panel - Show on mobile for troubleshooting */}
+      {isMobileDevice && (
+        <div className="bg-slate-900 border-t border-slate-700 p-2">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-semibold text-yellow-400">📋 Debug Log ({debugLog.length}):</span>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => {
+                  addDebugLog('🔄 Manual refresh triggered');
+                  addDebugLog('Socket: ' + socket.connected);
+                  addDebugLog('Presenter: ' + (presenter?.userName || 'none'));
+                  addDebugLog('Viewing: ' + isViewing);
+                  addDebugLog('Status: ' + connectionStatus);
+                }}
+                className="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded"
+              >
+                Info
+              </button>
+              <button 
+                onClick={() => setDebugLog([])} 
+                className="text-xs text-gray-400 hover:text-white"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+          {debugLog.length > 0 ? (
+            <div className="text-xs font-mono text-gray-300 space-y-0.5 max-h-32 overflow-y-auto">
+              {debugLog.slice(-15).map((log, i) => (
+                <div key={i} className="text-[10px] leading-tight">{log}</div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-xs text-gray-500 text-center py-2">
+              No debug logs yet. Click "View" to start connection.
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Status Bar */}
       <div className="bg-slate-800 text-white p-2 text-sm text-center">
