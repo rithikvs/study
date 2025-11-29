@@ -119,6 +119,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
     socket.on('screenshare:offer', handleOffer);
     socket.on('screenshare:answer', handleAnswer);
     socket.on('screenshare:ice-candidate', handleIceCandidate);
+    socket.on('screenshare:ice-restart', handleIceRestartOffer);
     socket.on('screenshare:draw', handleRemoteDrawing);
     socket.on('screenshare:connection-error', ({ error }) => {
       console.error('❌ Connection error from presenter:', error);
@@ -139,6 +140,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       socket.off('screenshare:offer', handleOffer);
       socket.off('screenshare:answer', handleAnswer);
       socket.off('screenshare:ice-candidate', handleIceCandidate);
+      socket.off('screenshare:ice-restart', handleIceRestartOffer);
       socket.off('screenshare:draw', handleRemoteDrawing);
       socket.off('screenshare:connection-error');
     };
@@ -202,14 +204,13 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   }
 
   async function startSharing() {
+    // Check device type
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isAndroid = /Android/i.test(navigator.userAgent);
     try {
       setError(null);
       
       let stream = null;
-      
-      // Check device type
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      const isAndroid = /Android/i.test(navigator.userAgent);
       
       console.log('📱 Device detected:', { isMobile, isAndroid, userAgent: navigator.userAgent });
       
@@ -723,7 +724,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
           // Close and cleanup failed connection
           try {
             peerConnection.close();
-          } catch (e) {}
+          } catch (e) { console.warn('PeerConnection close failed', e); }
           peerConnectionsRef.current.delete(fromUserId);
           
           // Notify user we're retrying
@@ -804,7 +805,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         for (const c of pending) {
           try {
             await peerConnection.addIceCandidate(new RTCIceCandidate(c));
-          } catch (e) { /* ignore */ }
+          } catch (err) { console.warn('ICE candidate add failed', err); }
         }
         pendingCandidatesRef.current.delete(fromUserId);
       }
@@ -868,6 +869,32 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       console.log('📊 New signaling state:', peerConnection.signalingState);
     } catch (err) {
       console.error('❌ Error handling answer from', fromUserId, ':', err.message, err);
+    }
+  }
+
+  // Presenter: Handle ICE restart offer from viewer
+  async function handleIceRestartOffer({ offer, fromUserId, toUserId }) {
+    if (toUserId !== authUser.id) return;
+    if (!isSharing || !streamRef.current) return;
+    const peerConnection = peerConnectionsRef.current.get(fromUserId);
+    if (!peerConnection) {
+      console.warn('⚠️ No peer connection found for ICE restart from:', fromUserId);
+      return;
+    }
+    try {
+      console.log('🔄 Presenter handling ICE restart offer from viewer:', fromUserId);
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+      socket.emit('screenshare:answer', {
+        roomCode,
+        answer,
+        fromUserId: authUser.id,
+        toUserId: fromUserId,
+      });
+      console.log('✅ Presenter sent ICE restart answer to viewer:', fromUserId);
+    } catch (err) {
+      console.error('❌ Presenter failed to process ICE restart offer:', err);
     }
   }
 

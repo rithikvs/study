@@ -209,12 +209,12 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('screenshare:request-view', ({ roomCode, userId, userName }) => {
+  socket.on('screenshare:request-view', ({ roomCode, userId, userName, isMobile }) => {
     try {
       if (!roomCode || !userId) return;
       console.log(`👁️ Viewer ${userName} requesting to view screenshare in room ${roomCode}`);
       // Broadcast to presenter to create offer
-      socket.to(roomCode).emit('screenshare:request-view', { userId, userName });
+      socket.to(roomCode).emit('screenshare:request-view', { userId, userName, isMobile });
       
       // Update viewers list
       const viewers = [];
@@ -231,6 +231,17 @@ io.on('connection', (socket) => {
       io.to(roomCode).emit('screenshare:viewers-update', { viewers });
     } catch (err) {
       console.error('screenshare:request-view error', err);
+    }
+  });
+
+  // Viewer requests retry with forced TURN relay; re-trigger view request with isMobile=true
+  socket.on('screenshare:retry-with-relay', ({ roomCode, userId, userName }) => {
+    try {
+      if (!roomCode || !userId) return;
+      console.log(`🔄 Retry requested by viewer ${userName} in room ${roomCode} (forced relay)`);
+      socket.to(roomCode).emit('screenshare:request-view', { userId, userName, isMobile: true });
+    } catch (err) {
+      console.error('screenshare:retry-with-relay error', err);
     }
   });
 
@@ -291,6 +302,25 @@ io.on('connection', (socket) => {
       }
     } catch (err) {
       console.error('screenshare:ice-candidate error', err);
+    }
+  });
+
+  // Forward ICE restart offers from viewer to presenter
+  socket.on('screenshare:ice-restart', ({ roomCode, offer, fromUserId, toUserId }) => {
+    try {
+      if (!offer || !roomCode) return;
+      console.log(`🔄 Forwarding ICE restart offer from ${fromUserId} to ${toUserId} in room ${roomCode}`);
+      const roomSockets = io.sockets.adapter.rooms.get(roomCode);
+      if (roomSockets) {
+        roomSockets.forEach(socketId => {
+          const targetSocket = io.sockets.sockets.get(socketId);
+          if (targetSocket && targetSocket.data?.userId === toUserId) {
+            targetSocket.emit('screenshare:ice-restart', { offer, fromUserId, toUserId });
+          }
+        });
+      }
+    } catch (err) {
+      console.error('screenshare:ice-restart error', err);
     }
   });
 
