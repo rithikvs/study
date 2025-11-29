@@ -495,15 +495,18 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
 
       console.log('👁️ Requested to join viewing from', presenter.userName);
 
-      // Set a timeout for connection
-      setTimeout(() => {
-        if (connectionStatus === 'connecting') {
-          console.log('⏰ Connection timeout');
-          setError('⏱️ Connection Timeout\n\nUnable to connect to presenter.\n\nTry these steps:\n• Click "View" button again\n• Ask presenter to stop and restart sharing\n• Check your internet connection\n• Refresh the page and try again');
+      // Set a timeout for connection with retry option
+      const connectionTimeout = setTimeout(() => {
+        if (connectionStatus === 'connecting' || connectionStatus === 'reconnecting') {
+          console.log('⏰ Connection timeout after 20 seconds');
+          setError('⏱️ Connection Timeout\n\nUnable to connect to presenter.\n\nPossible issues:\n• Mobile network blocking WebRTC\n• Presenter\'s firewall settings\n• Network connectivity problems\n\nTry:\n1. Ask presenter to restart sharing\n2. Switch between WiFi and mobile data\n3. Refresh the page\n4. Try on a different network');
           setConnectionStatus('disconnected');
           setIsViewing(false);
         }
-      }, 15000); // 15 second timeout
+      }, 20000); // 20 second timeout
+      
+      // Clean up timeout if component unmounts
+      return () => clearTimeout(connectionTimeout);
 
     } catch (err) {
       console.error('Error joining viewing:', err);
@@ -518,10 +521,20 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
     if (toUserId !== authUser.id) return;
     
     console.log('📥 Received offer from presenter:', fromUserId);
+    console.log('📋 Offer SDP type:', offer.type, 'SDP length:', offer.sdp?.length);
     
     try {
+      // Clean up any existing connection first
+      const existingPc = peerConnectionsRef.current.get(fromUserId);
+      if (existingPc) {
+        console.log('🧹 Cleaning up existing peer connection');
+        existingPc.close();
+        peerConnectionsRef.current.delete(fromUserId);
+      }
+      
       const peerConnection = new RTCPeerConnection(rtcConfig);
       peerConnectionsRef.current.set(fromUserId, peerConnection);
+      console.log('✅ Created new RTCPeerConnection');
 
       // Handle incoming stream from presenter
       peerConnection.ontrack = (event) => {
@@ -594,16 +607,20 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
 
       // Monitor ICE connection state
       peerConnection.oniceconnectionstatechange = () => {
-        console.log('ICE connection state:', peerConnection.iceConnectionState);
+        console.log('📊 ICE connection state:', peerConnection.iceConnectionState);
         if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
           console.log('✅ ICE connection established');
           setConnectionStatus('connected');
+          setError(null);
         } else if (peerConnection.iceConnectionState === 'checking') {
           console.log('🔍 Checking ICE connectivity...');
           setConnectionStatus('connecting');
+        } else if (peerConnection.iceConnectionState === 'disconnected') {
+          console.log('⚠️ ICE connection disconnected, waiting for reconnection...');
+          setConnectionStatus('reconnecting');
         } else if (peerConnection.iceConnectionState === 'failed') {
           console.error('❌ ICE connection failed');
-          setError('🔴 Network Connection Failed\n\nUnable to establish connection.\n\nThis might be due to:\n• Firewall blocking connection\n• Network restrictions\n• Internet connection issues\n\nTry:\n• Check your internet connection\n• Try a different network (switch WiFi/mobile data)\n• Ask presenter to restart sharing');
+          setError('🔴 Network Connection Failed\n\nUnable to establish connection.\n\nThis might be due to:\n• Firewall blocking connection\n• Network restrictions\n• Internet connection issues\n\nTry:\n• Check your internet connection\n• Try a different network (switch WiFi/mobile data)\n• Ask presenter to restart sharing\n• Refresh the page and try again');
           setConnectionStatus('disconnected');
           setIsViewing(false);
         }
@@ -611,19 +628,41 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
 
       // Monitor ICE gathering state
       peerConnection.onicegatheringstatechange = () => {
-        console.log('ICE gathering state:', peerConnection.iceGatheringState);
+        console.log('📊 ICE gathering state:', peerConnection.iceGatheringState);
+        if (peerConnection.iceGatheringState === 'complete') {
+          console.log('✅ ICE gathering completed');
+        }
+      };
+      
+      // Monitor signaling state
+      peerConnection.onsignalingstatechange = () => {
+        console.log('📊 Signaling state:', peerConnection.signalingState);
       };
 
+      // Set remote description first (critical for mobile)
+      console.log('📝 Setting remote description...');
       await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-      const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
+      console.log('✅ Remote description set successfully');
       
+      // Create answer
+      console.log('📝 Creating answer...');
+      const answer = await peerConnection.createAnswer();
+      console.log('✅ Answer created:', answer.type);
+      
+      // Set local description
+      console.log('📝 Setting local description...');
+      await peerConnection.setLocalDescription(answer);
+      console.log('✅ Local description set successfully');
+      
+      // Send answer back to presenter
+      console.log('📤 Sending answer to presenter:', fromUserId);
       socket.emit('screenshare:answer', {
         roomCode,
         answer,
         fromUserId: authUser.id,
         toUserId: fromUserId,
       });
+      console.log('✅ Answer sent successfully');
 
     } catch (err) {
       console.error('❌ Error handling offer:', err);
@@ -638,18 +677,29 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
     if (toUserId !== authUser.id) return;
     
     console.log('📬 Received answer from viewer:', fromUserId);
+    console.log('📋 Answer SDP type:', answer.type, 'SDP length:', answer.sdp?.length);
     
     const peerConnection = peerConnectionsRef.current.get(fromUserId);
     if (!peerConnection) {
-      console.error('No peer connection found for', fromUserId);
+      console.error('❌ No peer connection found for viewer:', fromUserId);
       return;
     }
     
     try {
+      // Check signaling state before setting remote description
+      console.log('📊 Current signaling state:', peerConnection.signalingState);
+      
+      if (peerConnection.signalingState === 'stable') {
+        console.warn('⚠️ Connection already in stable state, skipping answer');
+        return;
+      }
+      
+      console.log('📝 Setting remote description (answer)...');
       await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-      console.log('✅ Answer set successfully');
+      console.log('✅ Answer set successfully for viewer:', fromUserId);
+      console.log('📊 New signaling state:', peerConnection.signalingState);
     } catch (err) {
-      console.error('Error handling answer:', err);
+      console.error('❌ Error handling answer from', fromUserId, ':', err.message, err);
     }
   }
 
@@ -658,12 +708,25 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
     if (toUserId !== authUser.id) return;
     
     const peerConnection = peerConnectionsRef.current.get(fromUserId);
-    if (!peerConnection) return;
+    if (!peerConnection) {
+      console.warn('⚠️ No peer connection found for ICE candidate from:', fromUserId);
+      return;
+    }
     
     try {
+      // Check if remote description is set before adding candidate
+      if (!peerConnection.remoteDescription) {
+        console.log('⏳ Waiting for remote description before adding ICE candidate');
+        // Queue the candidate to be added later
+        setTimeout(() => handleIceCandidate({ candidate, fromUserId, toUserId }), 100);
+        return;
+      }
+      
+      console.log('🧊 Adding ICE candidate:', candidate.type || 'unknown type');
       await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      console.log('✅ ICE candidate added successfully');
     } catch (err) {
-      console.error('Error adding ICE candidate:', err);
+      console.error('❌ Error adding ICE candidate:', err.message, err);
     }
   }
 
@@ -730,9 +793,18 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
           console.log('Presenter ICE state with', userName, ':', peerConnection.iceConnectionState);
         };
 
-        // Create and send offer
-        const offer = await peerConnection.createOffer();
+        // Create and send offer with explicit constraints
+        console.log('📝 Creating offer for viewer:', userName);
+        const offerOptions = {
+          offerToReceiveAudio: false,
+          offerToReceiveVideo: true,
+        };
+        const offer = await peerConnection.createOffer(offerOptions);
+        console.log('✅ Offer created:', offer.type, 'SDP length:', offer.sdp?.length);
+        
+        console.log('📝 Setting local description...');
         await peerConnection.setLocalDescription(offer);
+        console.log('✅ Local description set');
         
         console.log('📤 Sending offer to viewer:', userName);
         socket.emit('screenshare:offer', {
@@ -741,6 +813,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
           fromUserId: authUser.id,
           toUserId: userId,
         });
+        console.log('✅ Offer sent to viewer:', userName);
 
       } catch (err) {
         console.error('❌ Error creating offer for viewer:', userName, err);
@@ -989,7 +1062,9 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
           <div className="w-full max-w-6xl">
             <h3 className="text-white text-xl mb-4">Viewing: {presenter?.userName}'s Screen</h3>
             <div className="bg-slate-800 p-2 rounded mb-2 text-sm text-gray-300">
-              📱 Connection Status: <span className={connectionStatus === 'connected' ? 'text-green-400' : connectionStatus === 'connecting' ? 'text-yellow-400' : 'text-red-400'}>{connectionStatus}</span>
+              📱 Connection Status: <span className={connectionStatus === 'connected' ? 'text-green-400 font-bold' : connectionStatus === 'connecting' ? 'text-yellow-400 animate-pulse' : connectionStatus === 'reconnecting' ? 'text-orange-400' : 'text-red-400'}>{connectionStatus}</span>
+              {connectionStatus === 'connecting' && <span className="ml-2 text-xs text-gray-400">• Establishing connection...</span>}
+              {connectionStatus === 'reconnecting' && <span className="ml-2 text-xs text-gray-400">• Reconnecting...</span>}
             </div>
             <div className="relative">
               <video
@@ -1022,6 +1097,28 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
             <div className="text-6xl mb-4">👤</div>
             <h3 className="text-2xl mb-2">{presenter.userName} is sharing</h3>
             <p className="text-gray-400 mb-4">Use the banner at the top of the page to join and view</p>
+            <button
+              onClick={joinViewing}
+              className="px-6 py-3 bg-blue-600 rounded-lg hover:bg-blue-700 font-medium transition text-lg"
+            >
+              👁️ Join Viewing
+            </button>
+          </div>
+        )}
+
+        {connectionStatus === 'connecting' && isViewing && !error && (
+          <div className="text-white text-center">
+            <div className="text-6xl mb-4 animate-pulse">🔄</div>
+            <h3 className="text-2xl mb-2">Connecting to {presenter?.userName}...</h3>
+            <p className="text-gray-400 mb-4">Please wait while we establish the connection</p>
+            <div className="flex flex-col gap-2 items-center">
+              <div className="flex gap-2">
+                <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              </div>
+              <p className="text-xs text-gray-500 mt-4">This may take up to 20 seconds on mobile networks</p>
+            </div>
           </div>
         )}
       </div>
