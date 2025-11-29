@@ -56,6 +56,15 @@ export default function Room() {
     console.log('🔌 Joining socket room:', roomCode);
     socket.emit('join', { roomCode });
     
+    // Join screenshare room to get presenter updates even after refresh
+    if (authUser) {
+      socket.emit('screenshare:join', {
+        roomCode,
+        userId: authUser.id,
+        userName: authUser.name
+      });
+    }
+    
     function onUpdated({ note }) {
       console.log('📝 Note updated:', note);
       setNotes((prev) => prev.map((n) => (n._id === note._id ? note : n)));
@@ -106,8 +115,15 @@ export default function Room() {
       socket.off('room:deleted', onRoomDeleted);
       socket.off('screenshare:presenter-started', onPresenterStarted);
       socket.off('screenshare:presenter-stopped', onPresenterStopped);
+      
+      if (authUser) {
+        socket.emit('screenshare:leave', {
+          roomCode,
+          userId: authUser.id
+        });
+      }
     };
-  }, [roomCode, activeId, navigate, setGroups]);
+  }, [roomCode, activeId, navigate, setGroups, authUser]);
 
   function openNoteModal() {
     setNewNoteName('');
