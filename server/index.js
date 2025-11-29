@@ -294,6 +294,16 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('screenshare:draw', ({ roomCode, fromUserId, x, y, color, size, type }) => {
+    try {
+      if (!roomCode) return;
+      // Broadcast drawing data to all viewers in the room except sender
+      socket.to(roomCode).emit('screenshare:draw', { fromUserId, x, y, color, size, type });
+    } catch (err) {
+      console.error('screenshare:draw error', err);
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('Socket disconnected:', socket.id);
   });

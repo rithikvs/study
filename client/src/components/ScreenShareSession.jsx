@@ -13,10 +13,18 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   const [isCameraMode, setIsCameraMode] = useState(false);
   const [currentFacingMode, setCurrentFacingMode] = useState('environment');
   
+  // Drawing states
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [penColor, setPenColor] = useState('#FF0000');
+  const [penSize, setPenSize] = useState(3);
+  const [showDrawingTools, setShowDrawingTools] = useState(false);
+  
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const streamRef = useRef(null);
   const peerConnectionsRef = useRef(new Map()); // Map of userId -> RTCPeerConnection
+  const canvasRef = useRef(null);
+  const drawingContextRef = useRef(null);
 
   // WebRTC configuration with multiple STUN servers for better connectivity
   const rtcConfig = {
@@ -65,6 +73,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
     socket.on('screenshare:offer', handleOffer);
     socket.on('screenshare:answer', handleAnswer);
     socket.on('screenshare:ice-candidate', handleIceCandidate);
+    socket.on('screenshare:draw', handleRemoteDrawing);
 
     return () => {
       cleanup();
@@ -78,8 +87,20 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       socket.off('screenshare:offer', handleOffer);
       socket.off('screenshare:answer', handleAnswer);
       socket.off('screenshare:ice-candidate', handleIceCandidate);
+      socket.off('screenshare:draw', handleRemoteDrawing);
     };
   }, [roomCode, authUser]);
+
+  // Initialize canvas for drawing
+  useEffect(() => {
+    if (canvasRef.current && isSharing) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      drawingContextRef.current = ctx;
+    }
+  }, [isSharing]);
 
   function cleanup() {
     if (streamRef.current) {
@@ -307,6 +328,114 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
     } catch (err) {
       console.error('Error switching camera:', err);
       setError('Failed to switch camera');
+    }
+  }
+
+  // Drawing functions
+  function startDrawing(e) {
+    if (!isSharing || !showDrawingTools) return;
+    setIsDrawing(true);
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const x = ((e.clientX || e.touches?.[0]?.clientX) - rect.left) * (canvas.width / rect.width);
+    const y = ((e.clientY || e.touches?.[0]?.clientY) - rect.top) * (canvas.height / rect.height);
+    
+    const ctx = drawingContextRef.current;
+    ctx.strokeStyle = penColor;
+    ctx.lineWidth = penSize;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    
+    // Broadcast start of stroke
+    socket.emit('screenshare:draw', {
+      roomCode,
+      fromUserId: authUser.id,
+      x,
+      y,
+      color: penColor,
+      size: penSize,
+      type: 'start'
+    });
+  }
+
+  function draw(e) {
+    if (!isDrawing || !isSharing || !showDrawingTools) return;
+    e.preventDefault();
+    
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const x = ((e.clientX || e.touches?.[0]?.clientX) - rect.left) * (canvas.width / rect.width);
+    const y = ((e.clientY || e.touches?.[0]?.clientY) - rect.top) * (canvas.height / rect.height);
+    
+    const ctx = drawingContextRef.current;
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    
+    // Broadcast drawing to viewers
+    socket.emit('screenshare:draw', {
+      roomCode,
+      fromUserId: authUser.id,
+      x,
+      y,
+      color: penColor,
+      size: penSize,
+      type: 'draw'
+    });
+  }
+
+  function stopDrawing() {
+    if (!isSharing) return;
+    setIsDrawing(false);
+    const ctx = drawingContextRef.current;
+    if (ctx) {
+      ctx.beginPath();
+    }
+    
+    // Notify end of stroke
+    socket.emit('screenshare:draw', {
+      roomCode,
+      fromUserId: authUser.id,
+      type: 'end'
+    });
+  }
+
+  function clearCanvas() {
+    if (!canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = drawingContextRef.current;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Broadcast clear to viewers
+    socket.emit('screenshare:draw', {
+      roomCode,
+      fromUserId: authUser.id,
+      type: 'clear'
+    });
+  }
+
+  function handleRemoteDrawing({ fromUserId, x, y, color, size, type }) {
+    // Only viewers should draw what presenter sends
+    if (fromUserId === authUser.id || !isViewing || presenter?.userId === authUser.id) return;
+    
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    if (type === 'clear') {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    } else if (type === 'start') {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = size;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+    } else if (type === 'draw') {
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    } else if (type === 'end') {
+      ctx.beginPath();
     }
   }
 
@@ -672,7 +801,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
                   ? (isCameraMode ? `📱 Viewing Your Camera (${currentFacingMode === 'user' ? 'Front' : 'Back'})` : '📺 Viewing Your Screen')
                   : (isCameraMode ? `📱 Camera (${currentFacingMode === 'user' ? 'Front' : 'Back'})` : '🖥️ Your Screen (Sharing)')}
               </h3>
-              <div className="text-sm text-gray-400">
+              <div className="text-sm text-gray-400 flex items-center gap-4">
                 {streamRef.current && (
                   <span>
                     Tracks: {streamRef.current.getTracks().length} | 
@@ -680,31 +809,105 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
                     Viewers: {peerConnectionsRef.current.size}
                   </span>
                 )}
+                <button
+                  onClick={() => setShowDrawingTools(!showDrawingTools)}
+                  className="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded text-white font-medium transition"
+                >
+                  ✏️ {showDrawingTools ? 'Hide' : 'Draw'}
+                </button>
               </div>
             </div>
-            <video
-              ref={localVideoRef}
-              autoPlay
-              playsInline
-              muted
-              webkit-playsinline="true"
-              className="w-full rounded-lg shadow-2xl bg-black min-h-[200px] md:min-h-[400px]"
-              style={{ maxHeight: '70vh', objectFit: 'contain' }}
-            />
+            
+            {/* Drawing Tools */}
+            {showDrawingTools && (
+              <div className="mb-3 p-3 bg-slate-800 rounded-lg flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <label className="text-white text-sm">Color:</label>
+                  <input
+                    type="color"
+                    value={penColor}
+                    onChange={(e) => setPenColor(e.target.value)}
+                    className="w-10 h-10 rounded cursor-pointer"
+                  />
+                  <div className="flex gap-1">
+                    {['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FFFFFF', '#000000'].map(color => (
+                      <button
+                        key={color}
+                        onClick={() => setPenColor(color)}
+                        className={`w-8 h-8 rounded border-2 ${penColor === color ? 'border-white' : 'border-gray-600'}`}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-white text-sm">Size:</label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="20"
+                    value={penSize}
+                    onChange={(e) => setPenSize(Number(e.target.value))}
+                    className="w-32"
+                  />
+                  <span className="text-white text-sm w-8">{penSize}px</span>
+                </div>
+                <button
+                  onClick={clearCanvas}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-white font-medium transition"
+                >
+                  🗑️ Clear
+                </button>
+              </div>
+            )}
+            
+            <div className="relative">
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                webkit-playsinline="true"
+                className="w-full rounded-lg shadow-2xl bg-black min-h-[200px] md:min-h-[400px]"
+                style={{ maxHeight: '70vh', objectFit: 'contain' }}
+              />
+              <canvas
+                ref={canvasRef}
+                width={1920}
+                height={1080}
+                onMouseDown={startDrawing}
+                onMouseMove={draw}
+                onMouseUp={stopDrawing}
+                onMouseLeave={stopDrawing}
+                onTouchStart={startDrawing}
+                onTouchMove={draw}
+                onTouchEnd={stopDrawing}
+                className="absolute top-0 left-0 w-full h-full rounded-lg"
+                style={{ cursor: showDrawingTools ? 'crosshair' : 'default', touchAction: 'none' }}
+              />
+            </div>
           </div>
         )}
 
         {isViewing && !isSharing && presenter?.userId !== authUser.id && !error && (
           <div className="w-full max-w-6xl">
             <h3 className="text-white text-xl mb-4">Viewing: {presenter?.userName}'s Screen</h3>
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              webkit-playsinline="true"
-              className="w-full rounded-lg shadow-2xl bg-black min-h-[200px] md:min-h-[400px]"
-              style={{ maxHeight: '70vh', objectFit: 'contain' }}
-            />
+            <div className="relative">
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                webkit-playsinline="true"
+                className="w-full rounded-lg shadow-2xl bg-black min-h-[200px] md:min-h-[400px]"
+                style={{ maxHeight: '70vh', objectFit: 'contain' }}
+              />
+              <canvas
+                ref={canvasRef}
+                width={1920}
+                height={1080}
+                className="absolute top-0 left-0 w-full h-full rounded-lg pointer-events-none"
+              />
+            </div>
           </div>
         )}
 
