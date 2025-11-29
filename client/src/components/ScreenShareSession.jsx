@@ -39,34 +39,13 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   // Detect if mobile for forced TURN usage
   const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
-  // WebRTC configuration - Multiple TURN servers for reliability
+  // WebRTC configuration - Use proven public TURN servers
   const rtcConfig = {
     iceServers: [
-      // Google STUN servers
+      // STUN servers for discovering public IP
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      // Metered TURN servers
-      {
-        urls: 'turn:a.relay.metered.ca:80',
-        username: 'e21d09ead091c0c763d3e78f',
-        credential: 'h5xjAVDq3ac3JSl1',
-      },
-      {
-        urls: 'turn:a.relay.metered.ca:80?transport=tcp',
-        username: 'e21d09ead091c0c763d3e78f',
-        credential: 'h5xjAVDq3ac3JSl1',
-      },
-      {
-        urls: 'turn:a.relay.metered.ca:443',
-        username: 'e21d09ead091c0c763d3e78f',
-        credential: 'h5xjAVDq3ac3JSl1',
-      },
-      {
-        urls: 'turns:a.relay.metered.ca:443?transport=tcp',
-        username: 'e21d09ead091c0c763d3e78f',
-        credential: 'h5xjAVDq3ac3JSl1',
-      },
-      // Additional open TURN servers as backup
+      // OpenRelay - Free public TURN servers (most reliable)
       {
         urls: 'turn:openrelay.metered.ca:80',
         username: 'openrelayproject',
@@ -82,9 +61,20 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         username: 'openrelayproject',
         credential: 'openrelayproject',
       },
+      // Backup TURN servers
+      {
+        urls: 'turn:a.relay.metered.ca:80',
+        username: 'e21d09ead091c0c763d3e78f',
+        credential: 'h5xjAVDq3ac3JSl1',
+      },
+      {
+        urls: 'turn:a.relay.metered.ca:443',
+        username: 'e21d09ead091c0c763d3e78f',
+        credential: 'h5xjAVDq3ac3JSl1',
+      },
     ],
     iceCandidatePoolSize: 10,
-    // Mobile devices should prefer TURN to avoid NAT issues
+    // Force relay for mobile to ensure connection through TURN
     iceTransportPolicy: isMobileDevice ? 'relay' : 'all',
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require',
@@ -627,13 +617,18 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       // Handle ICE candidates
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-          addDebugLog('🧊 ICE: ' + (event.candidate.type || 'candidate'));
+          const type = event.candidate.type || 'unknown';
+          const protocol = event.candidate.protocol || '';
+          addDebugLog('🧊 Sending ICE: ' + type + ' (' + protocol + ')');
+          console.log('📤 Mobile ICE candidate:', type, protocol, event.candidate.candidate?.substring(0, 60));
           socket.emit('screenshare:ice-candidate', {
             roomCode,
             candidate: event.candidate,
             fromUserId: authUser.id,
             toUserId: fromUserId,
           });
+        } else {
+          addDebugLog('✅ ICE gathering complete');
         }
       };
 
@@ -881,7 +876,9 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         // Handle ICE candidates
         peerConnection.onicecandidate = (event) => {
           if (event.candidate) {
-            console.log('🧊 Sending ICE candidate to', userName, ':', event.candidate.type);
+            const type = event.candidate.type || 'unknown';
+            const protocol = event.candidate.protocol || '';
+            console.log('🧊 Presenter sending ICE to', userName, ':', type, '('+protocol+')', event.candidate.candidate?.substring(0, 60));
             socket.emit('screenshare:ice-candidate', {
               roomCode,
               candidate: event.candidate,
