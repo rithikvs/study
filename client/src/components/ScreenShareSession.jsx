@@ -9,12 +9,12 @@ export default function ScreenShareSession({ roomCode, onClose }) {
   const [viewers, setViewers] = useState([]);
   const [presenter, setPresenter] = useState(null);
   const [error, setError] = useState(null);
-  const [connectionStatus, setConnectionStatus] = useState('disconnected'); // disconnected, connecting, connected
+  const [connectionStatus, setConnectionStatus] = useState('disconnected');
   
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const streamRef = useRef(null);
-  const peerConnectionRef = useRef(null);
+  const peerConnectionsRef = useRef(new Map()); // Map of userId -> RTCPeerConnection
 
   // WebRTC configuration with multiple STUN servers for better connectivity
   const rtcConfig = {
@@ -67,10 +67,9 @@ export default function ScreenShareSession({ roomCode, onClose }) {
       streamRef.current = null;
     }
 
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
-      peerConnectionRef.current = null;
-    }
+    // Close all peer connections
+    peerConnectionsRef.current.forEach(pc => pc.close());
+    peerConnectionsRef.current.clear();
 
     if (localVideoRef.current) {
       localVideoRef.current.srcObject = null;
@@ -88,6 +87,7 @@ export default function ScreenShareSession({ roomCode, onClose }) {
     // If it's not us, we're now a viewer
     if (userId !== authUser.id) {
       setIsViewing(false); // Reset viewing state, user needs to click Join
+      setError(null); // Clear any previous errors
     }
   }
 
@@ -213,18 +213,42 @@ export default function ScreenShareSession({ roomCode, onClose }) {
     try {
       setError(null);
       setConnectionStatus('connecting');
+      setIsViewing(true);
       
-      // Create peer connection
-      const peerConnection = new RTCPeerConnection(rtcConfig);
-      peerConnectionRef.current = peerConnection;
+      // Request to view - presenter will send us an offer
+      socket.emit('screenshare:request-view', {
+        roomCode,
+        userId: authUser.id,
+        userName: authUser.name,
+      });
 
-      // Handle incoming stream
+      console.log('👁️ Requested to join viewing from', presenter.userName);
+
+    } catch (err) {
+      console.error('Error joining viewing:', err);
+      setError('Failed to join screen sharing. Please try again.');
+      setConnectionStatus('disconnected');
+      setIsViewing(false);
+    }
+  }
+
+  async function handleOffer({ offer, fromUserId, toUserId }) {
+    // Only handle offers meant for us
+    if (toUserId !== authUser.id) return;
+    
+    console.log('📥 Received offer from presenter:', fromUserId);
+    
+    try {
+      const peerConnection = new RTCPeerConnection(rtcConfig);
+      peerConnectionsRef.current.set(fromUserId, peerConnection);
+
+      // Handle incoming stream from presenter
       peerConnection.ontrack = (event) => {
-        console.log('📺 Received remote stream');
+        console.log('📺 Received remote stream from presenter', event.streams[0]);
         if (remoteVideoRef.current && event.streams[0]) {
           remoteVideoRef.current.srcObject = event.streams[0];
           setConnectionStatus('connected');
-          setIsViewing(true);
+          console.log('✅ Video stream set to remote video element');
         }
       };
 
@@ -235,6 +259,7 @@ export default function ScreenShareSession({ roomCode, onClose }) {
             roomCode,
             candidate: event.candidate,
             fromUserId: authUser.id,
+            toUserId: fromUserId,
           });
         }
       };
@@ -244,51 +269,9 @@ export default function ScreenShareSession({ roomCode, onClose }) {
         console.log('Connection state:', peerConnection.connectionState);
         if (peerConnection.connectionState === 'connected') {
           setConnectionStatus('connected');
-        } else if (peerConnection.connectionState === 'disconnected' || 
-                   peerConnection.connectionState === 'failed') {
+        } else if (peerConnection.connectionState === 'failed') {
           setConnectionStatus('disconnected');
-          setError('Connection lost. Please try joining again.');
-        }
-      };
-
-      // Request to join as viewer
-      socket.emit('screenshare:request-view', {
-        roomCode,
-        userId: authUser.id,
-        userName: authUser.name,
-      });
-
-    } catch (err) {
-      console.error('Error joining viewing:', err);
-      setError('Failed to join screen sharing. Please try again.');
-      setConnectionStatus('disconnected');
-    }
-  }
-
-  async function handleOffer({ offer, fromUserId }) {
-    if (fromUserId === authUser.id) return;
-    
-    console.log('📥 Received offer from:', fromUserId);
-    
-    try {
-      const peerConnection = new RTCPeerConnection(rtcConfig);
-      peerConnectionRef.current = peerConnection;
-
-      // Add our stream tracks if we're the presenter
-      if (streamRef.current && isSharing) {
-        streamRef.current.getTracks().forEach(track => {
-          peerConnection.addTrack(track, streamRef.current);
-        });
-      }
-
-      // Handle ICE candidates
-      peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-          socket.emit('screenshare:ice-candidate', {
-            roomCode,
-            candidate: event.candidate,
-            fromUserId: authUser.id,
-          });
+          setError('Connection failed. Please try joining again.');
         }
       };
 
@@ -300,46 +283,64 @@ export default function ScreenShareSession({ roomCode, onClose }) {
         roomCode,
         answer,
         fromUserId: authUser.id,
+        toUserId: fromUserId,
       });
 
     } catch (err) {
       console.error('Error handling offer:', err);
+      setError('Failed to connect. Please try again.');
     }
   }
 
-  async function handleAnswer({ answer, fromUserId }) {
-    if (fromUserId === authUser.id || !peerConnectionRef.current) return;
+  async function handleAnswer({ answer, fromUserId, toUserId }) {
+    // Only handle answers meant for us
+    if (toUserId !== authUser.id) return;
     
-    console.log('📬 Received answer from:', fromUserId);
+    console.log('📬 Received answer from viewer:', fromUserId);
+    
+    const peerConnection = peerConnectionsRef.current.get(fromUserId);
+    if (!peerConnection) {
+      console.error('No peer connection found for', fromUserId);
+      return;
+    }
     
     try {
-      await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+      console.log('✅ Answer set successfully');
     } catch (err) {
       console.error('Error handling answer:', err);
     }
   }
 
-  async function handleIceCandidate({ candidate, fromUserId }) {
-    if (fromUserId === authUser.id || !peerConnectionRef.current) return;
+  async function handleIceCandidate({ candidate, fromUserId, toUserId }) {
+    // Only handle candidates meant for us
+    if (toUserId !== authUser.id) return;
+    
+    const peerConnection = peerConnectionsRef.current.get(fromUserId);
+    if (!peerConnection) return;
     
     try {
-      await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+      await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
     } catch (err) {
       console.error('Error adding ICE candidate:', err);
     }
   }
 
-  // Listen for when presenter creates offer for us
+  // Presenter: Handle view requests and create offers for viewers
   useEffect(() => {
-    async function handleViewRequest() {
-      if (!isSharing || !streamRef.current || !presenter || presenter.userId !== authUser.id) return;
+    async function handleViewRequest({ userId, userName }) {
+      if (!isSharing || !streamRef.current) return;
+      if (userId === authUser.id) return; // Don't create connection to ourselves
+
+      console.log('👁️ Viewer requesting to join:', userName);
 
       try {
         const peerConnection = new RTCPeerConnection(rtcConfig);
-        peerConnectionRef.current = peerConnection;
+        peerConnectionsRef.current.set(userId, peerConnection);
 
-        // Add stream tracks
+        // Add our stream tracks
         streamRef.current.getTracks().forEach(track => {
+          console.log('Adding track to peer connection:', track.kind);
           peerConnection.addTrack(track, streamRef.current);
         });
 
@@ -350,42 +351,45 @@ export default function ScreenShareSession({ roomCode, onClose }) {
               roomCode,
               candidate: event.candidate,
               fromUserId: authUser.id,
+              toUserId: userId,
             });
           }
+        };
+
+        // Monitor connection state
+        peerConnection.onconnectionstatechange = () => {
+          console.log('Presenter connection state with', userName, ':', peerConnection.connectionState);
         };
 
         // Create and send offer
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
         
+        console.log('📤 Sending offer to viewer:', userName);
         socket.emit('screenshare:offer', {
           roomCode,
           offer,
           fromUserId: authUser.id,
+          toUserId: userId,
         });
 
       } catch (err) {
-        console.error('Error creating offer:', err);
+        console.error('Error creating offer for viewer:', err);
       }
     }
 
     socket.on('screenshare:request-view', handleViewRequest);
     return () => socket.off('screenshare:request-view', handleViewRequest);
-  }, [isSharing, presenter, authUser, roomCode]);
+  }, [isSharing, authUser, roomCode]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col">
       {/* Header */}
       <div className="bg-slate-800 text-white p-4 flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-4 flex-wrap">
-          <h2 className="text-lg font-semibold">📺 Screen Share Session</h2>
-          {presenter && presenter.userId !== authUser.id && (
-            <span className="text-sm text-green-400 animate-pulse">
-              👤 {presenter.userName} is presenting
-            </span>
-          )}
+          <h2 className="text-lg font-semibold">📺 Screen Share</h2>
           {connectionStatus === 'connecting' && (
-            <span className="text-sm text-yellow-400">
+            <span className="text-sm text-yellow-400 animate-pulse">
               🔄 Connecting...
             </span>
           )}
@@ -457,6 +461,26 @@ export default function ScreenShareSession({ roomCode, onClose }) {
           </button>
         </div>
       </div>
+
+      {/* Notification Banner */}
+      {presenter && presenter.userId !== authUser.id && !isViewing && (
+        <div className="bg-gradient-to-r from-green-600 to-blue-600 text-white p-4 flex items-center justify-between animate-pulse">
+          <div className="flex items-center gap-3">
+            <div className="text-3xl">👤</div>
+            <div>
+              <div className="font-bold text-lg">{presenter.userName} is sharing their screen</div>
+              <div className="text-sm opacity-90">Click "Join View" to see what they're sharing</div>
+            </div>
+          </div>
+          <button
+            onClick={joinViewing}
+            disabled={connectionStatus === 'connecting'}
+            className="px-6 py-3 bg-white text-blue-600 rounded-lg hover:bg-blue-50 font-bold shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {connectionStatus === 'connecting' ? '🔄 Connecting...' : '👁️ Join View'}
+          </button>
+        </div>
+      )}
 
       {/* Video Display Area */}
       <div className="flex-1 overflow-auto bg-slate-900 flex items-center justify-center p-4 md:p-8">

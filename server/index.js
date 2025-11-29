@@ -216,31 +216,61 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('screenshare:offer', ({ roomCode, offer, fromUserId }) => {
+  socket.on('screenshare:offer', ({ roomCode, offer, fromUserId, toUserId }) => {
     try {
       if (!offer || !roomCode) return;
-      console.log(`📤 Sending WebRTC offer from ${fromUserId} in room ${roomCode}`);
-      socket.to(roomCode).emit('screenshare:offer', { offer, fromUserId });
+      console.log(`📤 Sending WebRTC offer from ${fromUserId} to ${toUserId} in room ${roomCode}`);
+      
+      // Find the socket of the target user
+      const roomSockets = io.sockets.adapter.rooms.get(roomCode);
+      if (roomSockets) {
+        roomSockets.forEach(socketId => {
+          const targetSocket = io.sockets.sockets.get(socketId);
+          if (targetSocket && targetSocket.data?.userId === toUserId) {
+            targetSocket.emit('screenshare:offer', { offer, fromUserId, toUserId });
+          }
+        });
+      }
     } catch (err) {
       console.error('screenshare:offer error', err);
     }
   });
 
-  socket.on('screenshare:answer', ({ roomCode, answer, fromUserId }) => {
+  socket.on('screenshare:answer', ({ roomCode, answer, fromUserId, toUserId }) => {
     try {
       if (!answer || !roomCode) return;
-      console.log(`📥 Sending WebRTC answer from ${fromUserId} in room ${roomCode}`);
-      socket.to(roomCode).emit('screenshare:answer', { answer, fromUserId });
+      console.log(`📥 Sending WebRTC answer from ${fromUserId} to ${toUserId} in room ${roomCode}`);
+      
+      // Find the socket of the target user
+      const roomSockets = io.sockets.adapter.rooms.get(roomCode);
+      if (roomSockets) {
+        roomSockets.forEach(socketId => {
+          const targetSocket = io.sockets.sockets.get(socketId);
+          if (targetSocket && targetSocket.data?.userId === toUserId) {
+            targetSocket.emit('screenshare:answer', { answer, fromUserId, toUserId });
+          }
+        });
+      }
     } catch (err) {
       console.error('screenshare:answer error', err);
     }
   });
 
-  socket.on('screenshare:ice-candidate', ({ roomCode, candidate, fromUserId }) => {
+  socket.on('screenshare:ice-candidate', ({ roomCode, candidate, fromUserId, toUserId }) => {
     try {
       if (!candidate || !roomCode) return;
-      console.log(`🧊 Sending ICE candidate from ${fromUserId} in room ${roomCode}`);
-      socket.to(roomCode).emit('screenshare:ice-candidate', { candidate, fromUserId });
+      console.log(`🧊 Sending ICE candidate from ${fromUserId} to ${toUserId} in room ${roomCode}`);
+      
+      // Find the socket of the target user
+      const roomSockets = io.sockets.adapter.rooms.get(roomCode);
+      if (roomSockets) {
+        roomSockets.forEach(socketId => {
+          const targetSocket = io.sockets.sockets.get(socketId);
+          if (targetSocket && targetSocket.data?.userId === toUserId) {
+            targetSocket.emit('screenshare:ice-candidate', { candidate, fromUserId, toUserId });
+          }
+        });
+      }
     } catch (err) {
       console.error('screenshare:ice-candidate error', err);
     }
