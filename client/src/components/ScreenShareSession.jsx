@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import socket from '../lib/socket';
 import { useApp } from '../context/AppContext';
 
-export default function ScreenShareSession({ roomCode, onClose }) {
+export default function ScreenShareSession({ roomCode, onClose, autoJoinPresenter }) {
   const { authUser } = useApp();
   const [isSharing, setIsSharing] = useState(false);
   const [isViewing, setIsViewing] = useState(false);
   const [viewers, setViewers] = useState([]);
-  const [presenter, setPresenter] = useState(null);
+  const [presenter, setPresenter] = useState(autoJoinPresenter || null);
   const [error, setError] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   
@@ -27,6 +27,16 @@ export default function ScreenShareSession({ roomCode, onClose }) {
     ],
     iceCandidatePoolSize: 10,
   };
+
+  // Auto-join if presenter is already sharing
+  useEffect(() => {
+    if (autoJoinPresenter && autoJoinPresenter.userId !== authUser?.id && !isViewing) {
+      console.log('🎯 Auto-joining presenter:', autoJoinPresenter.userName);
+      setTimeout(() => {
+        joinViewing();
+      }, 500);
+    }
+  }, [autoJoinPresenter]);
 
   useEffect(() => {
     if (!roomCode || !authUser) return;
@@ -125,11 +135,23 @@ export default function ScreenShareSession({ roomCode, onClose }) {
       
       let stream = null;
       
+      // Check device type
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
       // First, try getDisplayMedia (works on desktop and newer Android Chrome)
       if (navigator.mediaDevices?.getDisplayMedia) {
         try {
           console.log('🖥️ Attempting screen share with getDisplayMedia...');
-          stream = await navigator.mediaDevices.getDisplayMedia({
+          
+          // Different constraints for mobile vs desktop
+          const constraints = isMobile ? {
+            video: {
+              width: { ideal: 1280, max: 1920 },
+              height: { ideal: 720, max: 1080 },
+              frameRate: { ideal: 15, max: 30 },
+            },
+            audio: false,
+          } : {
             video: {
               cursor: 'always',
               width: { ideal: 1920 },
@@ -137,7 +159,9 @@ export default function ScreenShareSession({ roomCode, onClose }) {
               frameRate: { ideal: 30 },
             },
             audio: false,
-          });
+          };
+          
+          stream = await navigator.mediaDevices.getDisplayMedia(constraints);
           console.log('✅ Screen share started successfully');
         } catch (err) {
           console.log('getDisplayMedia error:', err.name, err.message);
@@ -147,8 +171,8 @@ export default function ScreenShareSession({ roomCode, onClose }) {
             throw err;
           }
           
-          // NotSupported or other error - try camera fallback
-          console.log('Screen sharing not supported, will try camera fallback...');
+          // NotSupported or other error
+          console.log('Screen sharing not supported');
           stream = null;
         }
       }
@@ -157,7 +181,10 @@ export default function ScreenShareSession({ roomCode, onClose }) {
       // This can happen on older mobile browsers
       if (!stream) {
         console.log('⚠️ Screen sharing not available on this device');
-        setError('Screen sharing is not supported on this device. Please use Chrome on Android (v72+) or a desktop browser.');
+        const errorMsg = isMobile 
+          ? 'Screen sharing is not supported on this device. Please use Chrome on Android (v72+) or a desktop browser.'
+          : 'Screen sharing is not supported. Please use Chrome, Firefox, Edge, or Safari.';
+        setError(errorMsg);
         return;
       }
 
@@ -477,6 +504,7 @@ export default function ScreenShareSession({ roomCode, onClose }) {
             <button
               onClick={joinViewing}
               disabled={connectionStatus === 'connecting'}
+              data-action="join-view"
               className="px-6 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {connectionStatus === 'connecting' ? '🔄 Connecting...' : '👁️ Join View'}
@@ -566,8 +594,9 @@ export default function ScreenShareSession({ roomCode, onClose }) {
               playsInline
               muted
               controls
-              className="w-full rounded-lg shadow-2xl bg-black min-h-[400px]"
-              style={{ maxHeight: '70vh' }}
+              webkit-playsinline="true"
+              className="w-full rounded-lg shadow-2xl bg-black min-h-[200px] md:min-h-[400px]"
+              style={{ maxHeight: '70vh', objectFit: 'contain' }}
             />
             {localVideoRef.current?.videoWidth === 0 && (
               <div className="text-yellow-400 text-center mt-2">
@@ -585,8 +614,9 @@ export default function ScreenShareSession({ roomCode, onClose }) {
               autoPlay
               playsInline
               controls
-              className="w-full rounded-lg shadow-2xl bg-black min-h-[400px]"
-              style={{ maxHeight: '70vh' }}
+              webkit-playsinline="true"
+              className="w-full rounded-lg shadow-2xl bg-black min-h-[200px] md:min-h-[400px]"
+              style={{ maxHeight: '70vh', objectFit: 'contain' }}
             />
           </div>
         )}
