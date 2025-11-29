@@ -164,56 +164,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       console.log('📱 Device detected:', { isMobile, isAndroid, userAgent: navigator.userAgent });
       
       // Try screen sharing for all devices (desktop and mobile)
-      if (navigator.mediaDevices?.getDisplayMedia) {
-        try {
-          console.log('🖥️ Attempting screen share...', { isMobile, isAndroid });
-          
-          // Use simpler constraints for mobile to increase compatibility
-          const constraints = isMobile ? {
-            video: true, // More permissive for mobile browsers
-            audio: false,
-          } : {
-            video: {
-              cursor: 'always',
-              width: { ideal: 1920 },
-              height: { ideal: 1080 },
-              frameRate: { ideal: 30 },
-            },
-            audio: false,
-          };
-          
-          console.log('📋 Using constraints:', constraints);
-          stream = await navigator.mediaDevices.getDisplayMedia(constraints);
-          console.log('✅ Screen sharing started successfully');
-        } catch (err) {
-          console.log('Screen share error:', err.name, err.message);
-          
-          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-            setError('❌ Screen sharing permission denied.\n\nPlease allow screen sharing when prompted and try again.');
-            return;
-          }
-          
-          // If not supported, show specific error
-          if (err.name === 'NotSupportedError' || err.name === 'NotFoundError') {
-            const mobileError = isMobile 
-              ? '📱 Screen Sharing Not Available\n\n' +
-                'Your mobile browser doesn\'t support screen sharing.\n\n' +
-                '✅ Try these steps:\n' +
-                '1. Open Chrome browser (not Chrome Custom Tab)\n' +
-                '2. Type chrome://version in address bar\n' +
-                '3. Check if version is 72 or higher\n' +
-                '4. If lower, update Chrome from Play Store\n' +
-                '5. Come back and try again\n\n' +
-                '💡 Make sure you\'re using the actual Chrome app, not an in-app browser.\n\n' +
-                '❌ iOS Safari doesn\'t support mobile screen sharing.'
-              : '🖥️ Screen sharing not supported in this browser.\n\nPlease use:\n• Chrome (recommended)\n• Firefox\n• Edge\n• Safari on macOS';
-            setError(mobileError);
-            return;
-          }
-          
-          stream = null;
-        }
-      } else {
+      if (!navigator.mediaDevices?.getDisplayMedia) {
         // getDisplayMedia not available at all
         const noSupportError = isMobile
           ? '📱 Screen Sharing API Not Found\n\n' +
@@ -230,24 +181,26 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         setError(noSupportError);
         return;
       }
+
+      console.log('🖥️ Attempting screen share...', { isMobile, isAndroid });
       
-      // If still no stream, show error
-      if (!stream) {
-        console.log('⚠️ No screen sharing available');
-        const errorMsg = isMobile 
-          ? '📱 Unable to Start Screen Sharing\n\n' +
-            '🔍 Troubleshooting:\n' +
-            '1. Are you using Chrome browser? (Required)\n' +
-            '2. Did you deny the permission? Try again and allow\n' +
-            '3. Check Chrome version: Type chrome://version\n' +
-            '4. Update Chrome if version is below 72\n' +
-            '5. Restart Chrome and try again\n\n' +
-            '📱 Samsung Users: Chrome works better than Samsung Internet\n\n' +
-            '💡 Copy this URL and open directly in Chrome app if you\'re in an in-app browser.'
-          : '🖥️ Screen Sharing Failed\n\nPlease:\n• Use Chrome, Firefox, or Edge browser\n• Allow screen sharing permission\n• Make sure you selected a screen/window to share';
-        setError(errorMsg);
-        return;
-      }
+      // Use simpler constraints for mobile to increase compatibility
+      const constraints = isMobile ? {
+        video: true, // More permissive for mobile browsers
+        audio: false,
+      } : {
+        video: {
+          cursor: 'always',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          frameRate: { ideal: 30 },
+        },
+        audio: false,
+      };
+      
+      console.log('📋 Using constraints:', constraints);
+      stream = await navigator.mediaDevices.getDisplayMedia(constraints);
+      console.log('✅ Screen sharing started successfully', stream);
 
       streamRef.current = stream;
       
@@ -283,14 +236,43 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       };
 
     } catch (err) {
-      console.error('Error starting screen share:', err);
+      console.error('❌ Error starting screen share:', err.name, err.message, err);
+      
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setError('Permission denied. Please allow screen/camera access and try again.');
-      } else if (err.name === 'NotSupportedError') {
-        setError('Screen sharing is not supported on this device. Use Chrome on desktop or Android (v72+).');
-      } else {
-        setError('Failed to start sharing. Try using Chrome on desktop or Android for best compatibility.');
+        setError('❌ Screen sharing permission denied.\n\nPlease click "Start Sharing" again and allow screen sharing when prompted.');
+        return;
       }
+      
+      if (err.name === 'NotSupportedError' || err.name === 'NotFoundError') {
+        const errorMsg = isMobile 
+          ? '📱 Screen Sharing Not Available\n\n' +
+            'Your mobile browser doesn\'t support screen sharing.\n\n' +
+            '✅ Try these steps:\n' +
+            '1. Open Chrome browser (not Chrome Custom Tab)\n' +
+            '2. Type chrome://version in address bar\n' +
+            '3. Check if version is 72 or higher\n' +
+            '4. If lower, update Chrome from Play Store\n' +
+            '5. Come back and try again\n\n' +
+            '💡 Make sure you\'re using the actual Chrome app, not an in-app browser.\n\n' +
+            '❌ iOS Safari doesn\'t support mobile screen sharing.'
+          : '🖥️ Screen sharing not supported in this browser.\n\nPlease use:\n• Chrome (recommended)\n• Firefox\n• Edge\n• Safari on macOS';
+        setError(errorMsg);
+        return;
+      }
+      
+      // Generic error
+      const genericError = isMobile
+        ? '📱 Unable to Start Screen Sharing\n\n' +
+          '🔍 Troubleshooting:\n' +
+          '1. Are you using Chrome browser? (Required)\n' +
+          '2. Did you deny the permission? Try again and allow\n' +
+          '3. Check Chrome version: Type chrome://version\n' +
+          '4. Update Chrome if version is below 72\n' +
+          '5. Restart Chrome and try again\n\n' +
+          '📱 Samsung Users: Chrome works better than Samsung Internet\n\n' +
+          '💡 Copy this URL and open directly in Chrome app if you\'re in an in-app browser.'
+        : '🖥️ Screen Sharing Failed\n\nPlease:\n• Use Chrome, Firefox, or Edge browser\n• Make sure you selected a screen or window to share\n• Try refreshing the page and trying again\n\nError: ' + (err.message || 'Unknown error');
+      setError(genericError);
     }
   }
 
