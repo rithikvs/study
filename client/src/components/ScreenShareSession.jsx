@@ -770,24 +770,27 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
             <h3 className="text-2xl mb-2">No active screen share</h3>
             <p className="text-gray-400 mb-4">Click "Start Sharing" to share with the room</p>
             <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-4 mt-4">
-              <p className="text-sm text-blue-300 mb-3">
-                💻 <strong>Desktop:</strong> Full screen sharing with drawing tools<br/>
-                📱 <strong>Mobile:</strong> Screen sharing (Android Chrome 72+)
+              <p className="text-sm text-blue-300 mb-3 font-semibold">
+                💻 <strong className="text-green-400">Laptop/Desktop ONLY:</strong> Can SHARE screen with drawing tools<br/>
+                📱 <strong className="text-yellow-400">Mobile Devices:</strong> Can only VIEW shared screens (Cannot share)
               </p>
               <div className="bg-slate-800/50 rounded p-3 text-xs text-gray-300">
-                <p className="font-semibold text-green-400 mb-2">📱 For Samsung/Android Users:</p>
-                <p className="mb-1">✅ <strong>MUST use Chrome browser</strong> (not Samsung Internet or in-app browsers)</p>
-                <p className="mb-1">✅ Check Chrome version: type <code className="bg-slate-700 px-1 rounded">chrome://version</code> in address bar</p>
-                <p className="mb-1">✅ If version &lt; 72, update Chrome from Play Store</p>
-                <p className="mb-1">✅ Click "Start Sharing" button above</p>
-                <p className="mb-1">✅ Choose "Your entire screen" or "Phone screen"</p>
-                <p className="mb-2">✅ Tap "Start now" to begin sharing</p>
-                <p className="text-yellow-300 text-xs mb-2">
-                  ⚠️ <strong>Important:</strong> If you clicked a link from WhatsApp/Instagram/Facebook, the page might open in their in-app browser which doesn't support screen sharing. Copy the URL and paste it directly in Chrome app.
+                <p className="font-semibold text-red-400 mb-2 text-sm">⚠️ IMPORTANT - Screen Sharing Limitation:</p>
+                <p className="mb-3 text-yellow-200 font-semibold">
+                  📱 Mobile phones and tablets can ONLY VIEW screens shared by laptop/desktop users.<br/>
+                  💻 To SHARE your screen, you MUST use a laptop or desktop computer.
                 </p>
-                <p className="text-red-300 text-xs">
-                  ❌ iOS devices (iPhone/iPad) don't support screen sharing yet - this is a browser limitation.
-                </p>
+                <div className="border-t border-gray-600 pt-2 mt-2">
+                  <p className="font-semibold text-blue-300 mb-2">👁️ Mobile users can:</p>
+                  <p className="mb-1">✅ Join the room and view shared screens</p>
+                  <p className="mb-1">✅ See drawing annotations in real-time</p>
+                  <p className="mb-3">✅ Watch presentations from laptop users</p>
+                  
+                  <p className="font-semibold text-green-300 mb-2">🖥️ Laptop/Desktop users can:</p>
+                  <p className="mb-1">✅ Share their entire screen</p>
+                  <p className="mb-1">✅ Use drawing tools to annotate</p>
+                  <p className="mb-1">✅ Share with multiple viewers</p>
+                </div>
               </div>
             </div>
           </div>
