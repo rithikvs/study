@@ -26,7 +26,8 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   const canvasRef = useRef(null);
   const drawingContextRef = useRef(null);
 
-  // WebRTC configuration with multiple STUN servers for better connectivity
+  // WebRTC configuration with STUN and TURN servers for better connectivity
+  // TURN servers help mobile devices connect through NAT/firewalls
   const rtcConfig = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
@@ -34,8 +35,25 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       { urls: 'stun:stun2.l.google.com:19302' },
       { urls: 'stun:stun3.l.google.com:19302' },
       { urls: 'stun:stun4.l.google.com:19302' },
+      // Free TURN servers for better mobile connectivity
+      {
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      }
     ],
     iceCandidatePoolSize: 10,
+    iceTransportPolicy: 'all', // Try all connection methods
   };
 
   // Auto-join when banner button is clicked
@@ -517,17 +535,27 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
           console.log('Stream tracks:', event.streams[0].getTracks());
           console.log('Video element readyState:', remoteVideoRef.current.readyState);
           
-          // Force video to play
-          setTimeout(() => {
-            if (remoteVideoRef.current) {
-              remoteVideoRef.current.play()
-                .then(() => {
-                  console.log('✅ Remote video playing');
-                  console.log('Video dimensions:', remoteVideoRef.current.videoWidth, 'x', remoteVideoRef.current.videoHeight);
-                })
-                .catch(e => console.error('❌ Error playing remote video:', e));
-            }
-          }, 100);
+          // Aggressive video playback for mobile - multiple retry attempts
+          const tryPlayVideo = (attempt = 1) => {
+            if (!remoteVideoRef.current || attempt > 5) return;
+            
+            remoteVideoRef.current.play()
+              .then(() => {
+                console.log('✅ Remote video playing (attempt ' + attempt + ')');
+                console.log('Video dimensions:', remoteVideoRef.current.videoWidth, 'x', remoteVideoRef.current.videoHeight);
+                setError(null); // Clear any connection errors
+              })
+              .catch(e => {
+                console.error('❌ Error playing remote video (attempt ' + attempt + '):', e);
+                // Retry after delay
+                setTimeout(() => tryPlayVideo(attempt + 1), 500);
+              });
+          };
+          
+          // Try immediately and also after delays
+          tryPlayVideo(1);
+          setTimeout(() => tryPlayVideo(2), 200);
+          setTimeout(() => tryPlayVideo(3), 500);
         }
       };
 
@@ -567,10 +595,23 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       // Monitor ICE connection state
       peerConnection.oniceconnectionstatechange = () => {
         console.log('ICE connection state:', peerConnection.iceConnectionState);
-        if (peerConnection.iceConnectionState === 'failed') {
-          console.error('ICE connection failed');
-          setError('🔴 Network Connection Failed\n\nUnable to establish connection.\n\nThis might be due to:\n• Firewall blocking connection\n• Network restrictions\n• Internet connection issues\n\nTry:\n• Check your internet connection\n• Try a different network\n• Contact your network administrator');
+        if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
+          console.log('✅ ICE connection established');
+          setConnectionStatus('connected');
+        } else if (peerConnection.iceConnectionState === 'checking') {
+          console.log('🔍 Checking ICE connectivity...');
+          setConnectionStatus('connecting');
+        } else if (peerConnection.iceConnectionState === 'failed') {
+          console.error('❌ ICE connection failed');
+          setError('🔴 Network Connection Failed\n\nUnable to establish connection.\n\nThis might be due to:\n• Firewall blocking connection\n• Network restrictions\n• Internet connection issues\n\nTry:\n• Check your internet connection\n• Try a different network (switch WiFi/mobile data)\n• Ask presenter to restart sharing');
+          setConnectionStatus('disconnected');
+          setIsViewing(false);
         }
+      };
+
+      // Monitor ICE gathering state
+      peerConnection.onicegatheringstatechange = () => {
+        console.log('ICE gathering state:', peerConnection.iceGatheringState);
       };
 
       await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
@@ -641,8 +682,20 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         // Add our stream tracks
         const tracks = streamRef.current.getTracks();
         console.log('📤 Adding tracks to peer connection:', tracks.map(t => t.kind));
+        console.log('📊 Stream stats:', {
+          id: streamRef.current.id,
+          active: streamRef.current.active,
+          tracks: tracks.length
+        });
+        
         tracks.forEach(track => {
-          console.log('Adding track:', track.kind, track.enabled, track.readyState);
+          console.log('Adding track:', {
+            kind: track.kind,
+            enabled: track.enabled,
+            readyState: track.readyState,
+            muted: track.muted,
+            id: track.id
+          });
           const sender = peerConnection.addTrack(track, streamRef.current);
           console.log('Track added, sender:', sender);
         });
@@ -650,18 +703,31 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         // Handle ICE candidates
         peerConnection.onicecandidate = (event) => {
           if (event.candidate) {
+            console.log('🧊 Sending ICE candidate to', userName, ':', event.candidate.type);
             socket.emit('screenshare:ice-candidate', {
               roomCode,
               candidate: event.candidate,
               fromUserId: authUser.id,
               toUserId: userId,
             });
+          } else {
+            console.log('✅ All ICE candidates sent to', userName);
           }
         };
 
         // Monitor connection state
         peerConnection.onconnectionstatechange = () => {
           console.log('Presenter connection state with', userName, ':', peerConnection.connectionState);
+          if (peerConnection.connectionState === 'connected') {
+            console.log('✅ Successfully connected to viewer:', userName);
+          } else if (peerConnection.connectionState === 'failed') {
+            console.error('❌ Connection failed with viewer:', userName);
+          }
+        };
+
+        // Monitor ICE connection for presenter
+        peerConnection.oniceconnectionstatechange = () => {
+          console.log('Presenter ICE state with', userName, ':', peerConnection.iceConnectionState);
         };
 
         // Create and send offer
@@ -922,14 +988,24 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         {isViewing && !isSharing && presenter?.userId !== authUser.id && !error && (
           <div className="w-full max-w-6xl">
             <h3 className="text-white text-xl mb-4">Viewing: {presenter?.userName}'s Screen</h3>
+            <div className="bg-slate-800 p-2 rounded mb-2 text-sm text-gray-300">
+              📱 Connection Status: <span className={connectionStatus === 'connected' ? 'text-green-400' : connectionStatus === 'connecting' ? 'text-yellow-400' : 'text-red-400'}>{connectionStatus}</span>
+            </div>
             <div className="relative">
               <video
                 ref={remoteVideoRef}
                 autoPlay
                 playsInline
+                muted
                 webkit-playsinline="true"
+                x5-playsinline="true"
+                x5-video-player-type="h5"
+                x5-video-player-fullscreen="true"
                 className="w-full rounded-lg shadow-2xl bg-black min-h-[200px] md:min-h-[400px]"
                 style={{ maxHeight: '70vh', objectFit: 'contain' }}
+                onLoadedMetadata={() => console.log('📺 Video metadata loaded')}
+                onPlay={() => console.log('▶️ Video playing')}
+                onError={(e) => console.error('❌ Video error:', e)}
               />
               <canvas
                 ref={canvasRef}
