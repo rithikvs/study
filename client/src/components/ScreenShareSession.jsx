@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import socket from '../lib/socket';
 import { useApp } from '../context/AppContext';
 
-export default function ScreenShareSession({ roomCode, onClose, autoJoinPresenter }) {
+export default function ScreenShareSession({ roomCode, onClose, autoJoinPresenter, triggerAutoJoin }) {
   const { authUser } = useApp();
   const [isSharing, setIsSharing] = useState(false);
   const [isViewing, setIsViewing] = useState(false);
@@ -38,18 +38,20 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
     iceCandidatePoolSize: 10,
   };
 
-  // Auto-join if presenter is already sharing
+  // Auto-join when banner button is clicked
   useEffect(() => {
-    if (autoJoinPresenter && autoJoinPresenter.userId !== authUser?.id && !isViewing && !isSharing) {
+    if (triggerAutoJoin > 0 && autoJoinPresenter) {
       console.log('🎯 Auto-joining presenter:', autoJoinPresenter.userName);
-      // Set presenter first
-      setPresenter(autoJoinPresenter);
+      // Set presenter first if not already set
+      if (!presenter || presenter.userId !== autoJoinPresenter.userId) {
+        setPresenter(autoJoinPresenter);
+      }
       // Then join viewing
       setTimeout(() => {
         joinViewing();
-      }, 800);
+      }, 300);
     }
-  }, [autoJoinPresenter, authUser]);
+  }, [triggerAutoJoin]);
 
   useEffect(() => {
     if (!roomCode || !authUser) return;
@@ -717,17 +719,6 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
             </>
           )}
 
-          {presenter && !isSharing && presenter.userId !== authUser.id && !isViewing && (
-            <button
-              onClick={joinViewing}
-              disabled={connectionStatus === 'connecting'}
-              data-action="join-view"
-              className="px-6 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {connectionStatus === 'connecting' ? '🔄 Connecting...' : '👁️ Join View'}
-            </button>
-          )}
-
           <button
             onClick={onClose}
             className="px-4 py-2 bg-slate-700 rounded-lg hover:bg-slate-600 transition"
@@ -736,26 +727,6 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
           </button>
         </div>
       </div>
-
-      {/* Notification Banner */}
-      {presenter && presenter.userId !== authUser.id && !isViewing && (
-        <div className="bg-gradient-to-r from-green-600 to-blue-600 text-white p-4 flex items-center justify-between animate-pulse">
-          <div className="flex items-center gap-3">
-            <div className="text-3xl">👤</div>
-            <div>
-              <div className="font-bold text-lg">{presenter.userName} is sharing their screen</div>
-              <div className="text-sm opacity-90">Click "Join View" to see what they're sharing</div>
-            </div>
-          </div>
-          <button
-            onClick={joinViewing}
-            disabled={connectionStatus === 'connecting'}
-            className="px-6 py-3 bg-white text-blue-600 rounded-lg hover:bg-blue-50 font-bold shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {connectionStatus === 'connecting' ? '🔄 Connecting...' : '👁️ Join View'}
-          </button>
-        </div>
-      )}
 
       {/* Video Display Area */}
       <div className="flex-1 overflow-auto bg-slate-900 flex items-center justify-center p-4 md:p-8">
@@ -915,7 +886,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
           <div className="text-white text-center">
             <div className="text-6xl mb-4">👤</div>
             <h3 className="text-2xl mb-2">{presenter.userName} is sharing</h3>
-            <p className="text-gray-400 mb-4">Click "Join View" to see their screen</p>
+            <p className="text-gray-400 mb-4">Use the banner at the top of the page to join and view</p>
           </div>
         )}
       </div>
@@ -925,7 +896,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         {isSharing && `📡 Sharing screen with ${viewers.length} viewer${viewers.length !== 1 ? 's' : ''} • ${streamRef.current ? `Stream: ${streamRef.current.getTracks().length} track(s)` : 'No stream'}`}
         {isViewing && !isSharing && `👁️ Viewing ${presenter?.userName}'s screen • Status: ${connectionStatus}`}
         {!isSharing && !presenter && '💡 Click "Start Sharing" to begin screen sharing session'}
-        {presenter && !isSharing && !isViewing && `📺 ${presenter.userName} is presenting - Click "Join View" to watch`}
+        {presenter && !isSharing && !isViewing && `📺 ${presenter.userName} is presenting - Use the banner at the top to join`}
       </div>
     </div>
   );

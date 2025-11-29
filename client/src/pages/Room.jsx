@@ -25,6 +25,7 @@ export default function Room() {
   const [showScreenShare, setShowScreenShare] = useState(false);
   const [viewingFile, setViewingFile] = useState(null);
   const [screenSharePresenter, setScreenSharePresenter] = useState(null);
+  const [triggerAutoJoin, setTriggerAutoJoin] = useState(0);
 
   useEffect(() => {
     async function init() {
@@ -266,12 +267,14 @@ export default function Room() {
               </div>
               <button
                 onClick={() => {
-                  setShowScreenShare(true);
-                  // Auto-join viewing after a short delay to let the component mount
-                  setTimeout(() => {
-                    const joinButton = document.querySelector('[data-action="join-view"]');
-                    if (joinButton) joinButton.click();
-                  }, 300);
+                  if (!showScreenShare) {
+                    setShowScreenShare(true);
+                    // Trigger auto-join
+                    setTriggerAutoJoin(prev => prev + 1);
+                  } else {
+                    // Already open, just trigger join again
+                    setTriggerAutoJoin(prev => prev + 1);
+                  }
                 }}
                 className="w-full sm:w-auto px-4 md:px-6 py-2 md:py-3 bg-white text-blue-600 rounded-lg hover:bg-blue-50 font-bold shadow-lg transition flex items-center justify-center gap-2 flex-shrink-0"
               >
@@ -548,6 +551,7 @@ export default function Room() {
           roomCode={roomCode} 
           onClose={() => setShowScreenShare(false)}
           autoJoinPresenter={screenSharePresenter}
+          triggerAutoJoin={triggerAutoJoin}
         />
       )}
 
