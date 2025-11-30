@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import ScreenShareSession from '../components/ScreenShareSession';
 import FileViewerReadOnly from '../components/FileViewerReadOnly';
 import api from '../lib/api';
 import socket from '../lib/socket';
@@ -22,10 +21,7 @@ export default function Room() {
   const [activeTab, setActiveTab] = useState('notes'); // 'notes' or 'files'
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [newNoteName, setNewNoteName] = useState('');
-  const [showScreenShare, setShowScreenShare] = useState(false);
   const [viewingFile, setViewingFile] = useState(null);
-  const [screenSharePresenter, setScreenSharePresenter] = useState(null);
-  const [triggerAutoJoin, setTriggerAutoJoin] = useState(0);
 
   useEffect(() => {
     async function init() {
@@ -56,15 +52,6 @@ export default function Room() {
     console.log('🔌 Joining socket room:', roomCode);
     socket.emit('join', { roomCode });
     
-    // Join screenshare room to get presenter updates even after refresh
-    if (authUser) {
-      socket.emit('screenshare:join', {
-        roomCode,
-        userId: authUser.id,
-        userName: authUser.name
-      });
-    }
-    
     function onUpdated({ note }) {
       console.log('📝 Note updated:', note);
       setNotes((prev) => prev.map((n) => (n._id === note._id ? note : n)));
@@ -93,35 +80,12 @@ export default function Room() {
     socket.on('note:deleted', onDeleted);
     socket.on('room:deleted', onRoomDeleted);
     
-    // Screen share notifications
-    function onPresenterStarted({ userId, userName }) {
-      console.log('📺 Screen share started by:', userName);
-      setScreenSharePresenter({ userId, userName });
-    }
-    
-    function onPresenterStopped() {
-      console.log('📺 Screen share stopped');
-      setScreenSharePresenter(null);
-    }
-    
-    socket.on('screenshare:presenter-started', onPresenterStarted);
-    socket.on('screenshare:presenter-stopped', onPresenterStopped);
-    
     return () => {
       console.log('🚪 Leaving socket room:', roomCode);
       socket.off('note:updated', onUpdated);
       socket.off('note:created', onCreated);
       socket.off('note:deleted', onDeleted);
       socket.off('room:deleted', onRoomDeleted);
-      socket.off('screenshare:presenter-started', onPresenterStarted);
-      socket.off('screenshare:presenter-stopped', onPresenterStopped);
-      
-      if (authUser) {
-        socket.emit('screenshare:leave', {
-          roomCode,
-          userId: authUser.id
-        });
-      }
     };
   }, [roomCode, activeId, navigate, setGroups, authUser]);
 
@@ -257,83 +221,6 @@ export default function Room() {
     <div className="min-h-screen bg-gradient-to-b from-white to-slate-100">
       <Navbar />
       
-      {/* Screen Share Notification Banner */}
-      {screenSharePresenter && (
-        <div className="bg-gradient-to-r from-green-500 to-blue-500 text-white shadow-lg">
-          <div className="mx-auto max-w-6xl px-4 py-3 md:py-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3 flex-1">
-                <div className="animate-pulse flex-shrink-0">
-                  <svg className="w-6 h-6 md:w-8 md:h-8" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
-                  </svg>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-bold text-base md:text-lg truncate">
-                    {screenSharePresenter.userId === authUser?.id 
-                      ? 'You are sharing your screen' 
-                      : `${screenSharePresenter.userName} is sharing`}
-                  </div>
-                  <div className="text-xs md:text-sm opacity-90">
-                    {screenSharePresenter.userId === authUser?.id
-                      ? 'Tap to view your shared screen'
-                      : 'Tap to join and view'}
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  
-                  // IMMEDIATE mobile check - block before ANY state changes
-                  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                  if (isMobile) {
-                    // Create immediate blocking overlay
-                    const overlay = document.createElement('div');
-                    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
-                    overlay.innerHTML = `
-                      <div style="background:#1e293b;border-radius:16px;padding:32px;max-width:400px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);border:2px solid #ef4444;">
-                        <div style="font-size:64px;margin-bottom:20px;">📱🚫</div>
-                        <h2 style="color:white;font-size:24px;font-weight:bold;margin-bottom:16px;">Mobile Not Supported</h2>
-                        <p style="color:#94a3b8;font-size:16px;margin-bottom:24px;line-height:1.5;">Screen sharing only works on laptop and desktop computers.</p>
-                        <div style="background:#1e40af;border:1px solid #3b82f6;border-radius:8px;padding:16px;margin-bottom:24px;">
-                          <p style="color:#93c5fd;font-size:14px;">💻 Please use your laptop or desktop browser</p>
-                        </div>
-                        <button onclick="this.parentElement.parentElement.remove()" style="width:100%;padding:12px 24px;background:#ef4444;color:white;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;">✕ Close</button>
-                      </div>
-                    `;
-                    document.body.appendChild(overlay);
-                    return;
-                  }
-                  
-                  if (!showScreenShare) {
-                    setShowScreenShare(true);
-                    // Trigger auto-join
-                    setTriggerAutoJoin(prev => prev + 1);
-                  } else {
-                    // Already open, just trigger join again
-                    setTriggerAutoJoin(prev => prev + 1);
-                  }
-                }}
-                className="w-full sm:w-auto px-4 md:px-6 py-2 md:py-3 bg-white text-blue-600 rounded-lg hover:bg-blue-50 font-bold shadow-lg transition flex items-center justify-center gap-2 flex-shrink-0"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                <span className="hidden sm:inline">
-                  {screenSharePresenter.userId === authUser?.id ? 'View Your Screen' : 'Join & View'}
-                </span>
-                <span className="sm:hidden">
-                  {screenSharePresenter.userId === authUser?.id ? 'View' : 'Join'}
-                </span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
       <main className="mx-auto max-w-6xl px-4 py-8">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -355,41 +242,6 @@ export default function Room() {
             )}
           </div>
           <div className="flex gap-2">
-            <button 
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                // IMMEDIATE mobile check - block before ANY state changes
-                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                if (isMobile) {
-                  // Create immediate blocking overlay
-                  const overlay = document.createElement('div');
-                  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
-                  overlay.innerHTML = `
-                    <div style="background:#1e293b;border-radius:16px;padding:32px;max-width:400px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);border:2px solid #ef4444;">
-                      <div style="font-size:64px;margin-bottom:20px;">📱🚫</div>
-                      <h2 style="color:white;font-size:24px;font-weight:bold;margin-bottom:16px;">Mobile Not Supported</h2>
-                      <p style="color:#94a3b8;font-size:16px;margin-bottom:24px;line-height:1.5;">Screen sharing only works on laptop and desktop computers.</p>
-                      <div style="background:#1e40af;border:1px solid #3b82f6;border-radius:8px;padding:16px;margin-bottom:24px;">
-                        <p style="color:#93c5fd;font-size:14px;">💻 Please use your laptop or desktop browser</p>
-                      </div>
-                      <button onclick="this.parentElement.parentElement.remove()" style="width:100%;padding:12px 24px;background:#ef4444;color:white;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;">✕ Close</button>
-                    </div>
-                  `;
-                  document.body.appendChild(overlay);
-                  return;
-                }
-                
-                setShowScreenShare(true);
-              }} 
-              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              Screen Share
-            </button>
             <button onClick={openNoteModal} className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark">New Note</button>
             <label className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 cursor-pointer flex items-center gap-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -609,16 +461,6 @@ export default function Room() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Screen Share Session */}
-      {showScreenShare && !(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) && (
-        <ScreenShareSession 
-          roomCode={roomCode} 
-          onClose={() => setShowScreenShare(false)}
-          autoJoinPresenter={screenSharePresenter}
-          triggerAutoJoin={triggerAutoJoin}
-        />
       )}
 
       {/* File Viewer */}
