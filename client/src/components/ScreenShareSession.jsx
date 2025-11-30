@@ -965,6 +965,41 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
     }
   }
 
+  // Handle incoming ICE candidates from remote peer
+  async function handleIceCandidate({ candidate, fromUserId, toUserId }) {
+    // Only handle candidates meant for us
+    if (toUserId !== authUser.id) return;
+    
+    const peerConnection = peerConnectionsRef.current.get(fromUserId);
+    if (!peerConnection) {
+      console.warn('⚠️ No peer connection found for ICE candidate from:', fromUserId);
+      return;
+    }
+    
+    try {
+      // If remote description is not set yet, queue the candidate
+      if (!peerConnection.remoteDescription || peerConnection.remoteDescription.type === '') {
+        console.log('⏳ Queuing ICE candidate (waiting for remote description)');
+        const pending = pendingCandidatesRef.current.get(fromUserId) || [];
+        pending.push(candidate);
+        pendingCandidatesRef.current.set(fromUserId, pending);
+        return;
+      }
+      
+      // Add the ICE candidate
+      const iceCandidate = new RTCIceCandidate(candidate);
+      const type = iceCandidate.type || 'unknown';
+      const protocol = iceCandidate.protocol || '';
+      
+      console.log('🧊 Adding ICE candidate:', type, 'type |', 'candidate:', iceCandidate.candidate?.substring(0, 80));
+      await peerConnection.addIceCandidate(iceCandidate);
+      console.log('✅ ICE candidate added successfully');
+      
+    } catch (err) {
+      console.error('❌ Error adding ICE candidate:', err);
+    }
+  }
+
   // Presenter: Handle view requests and create offers for viewers
   useEffect(() => {
     async function handleViewRequest({ userId, userName, isMobile }) {
