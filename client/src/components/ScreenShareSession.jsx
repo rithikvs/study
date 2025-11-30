@@ -1404,6 +1404,14 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
                 webkit-playsinline="true"
                 className="w-full rounded-lg shadow-2xl bg-black min-h-[200px] md:min-h-[400px]"
                 style={{ maxHeight: '70vh', objectFit: 'contain' }}
+                onLoadedMetadata={() => {
+                  console.log('📺 Local video metadata loaded');
+                  if (localVideoRef.current) {
+                    localVideoRef.current.play().catch(e => console.error('Local video play error:', e));
+                  }
+                }}
+                onPlay={() => console.log('▶️ Local video playing')}
+                onError={(e) => console.error('❌ Local video error:', e)}
               />
               <canvas
                 ref={canvasRef}
@@ -1505,16 +1513,20 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
                   ref={remoteVideoRef}
                   autoPlay
                   playsInline
-                  muted
                   webkit-playsinline="true"
                   x5-playsinline="true"
                   x5-video-player-type="h5"
                   x5-video-player-fullscreen="true"
                   className="w-full rounded-lg shadow-2xl bg-black min-h-[200px] md:min-h-[400px]"
                   style={{ maxHeight: '70vh', objectFit: 'contain' }}
-                  onLoadedMetadata={() => console.log('📺 Video metadata loaded')}
-                  onPlay={() => console.log('▶️ Video playing')}
-                  onError={(e) => console.error('❌ Video error:', e)}
+                  onLoadedMetadata={() => {
+                    console.log('📺 Remote video metadata loaded');
+                    if (remoteVideoRef.current) {
+                      remoteVideoRef.current.play().catch(e => console.error('Remote video play error:', e));
+                    }
+                  }}
+                  onPlay={() => console.log('▶️ Remote video playing')}
+                  onError={(e) => console.error('❌ Remote video error:', e)}
                   onClick={() => {
                     // Allow tap to play on mobile
                     if (remoteVideoRef.current && remoteVideoRef.current.paused) {
