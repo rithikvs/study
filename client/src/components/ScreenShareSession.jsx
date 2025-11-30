@@ -39,61 +39,37 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   // Detect if mobile for forced TURN usage
   const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
-  // Simplified WebRTC configuration - works on both desktop and mobile
+  // WebRTC configuration with STUN and TURN servers
   const rtcConfig = {
     iceServers: [
-      // Google STUN servers (always reliable)
+      // Google STUN servers
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' },
-      { urls: 'stun:stun4.l.google.com:19302' },
+      // Free TURN servers (numb.viagenie.ca)
+      {
+        urls: 'turn:numb.viagenie.ca',
+        username: 'webrtc@live.com',
+        credential: 'muazkh'
+      },
+      // Metered TURN servers
+      {
+        urls: 'turn:a.relay.metered.ca:80',
+        username: 'e21d09ead091c0c763d3e78f',
+        credential: 'h5xjAVDq3ac3JSl1',
+      },
+      {
+        urls: 'turn:a.relay.metered.ca:443',
+        username: 'e21d09ead091c0c763d3e78f',
+        credential: 'h5xjAVDq3ac3JSl1',
+      },
     ],
     iceCandidatePoolSize: 10,
-    iceTransportPolicy: 'all', // Try all methods: host → srflx → relay
+    iceTransportPolicy: 'all',
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require',
   };
   
-  console.log('📱 Device type:', isMobileDevice ? 'MOBILE' : 'DESKTOP');
-  console.log('🔧 ICE Transport Policy: ALL (host → srflx → relay)');
-
-  // Test TURN server connectivity on mount (mobile only)
-  useEffect(() => {
-    if (isMobileDevice) {
-      const testTurnServers = async () => {
-        try {
-          console.log('🧪 Testing TURN server connectivity...');
-          const testPc = new RTCPeerConnection(rtcConfig);
-          
-          testPc.onicecandidate = (event) => {
-            if (event.candidate) {
-              const type = event.candidate.type || 'unknown';
-              console.log('✅ TURN test ICE candidate:', type);
-              if (type === 'relay') {
-                console.log('✅✅✅ RELAY candidates working! Mobile connection should work.');
-              }
-            } else {
-              console.log('✅ TURN test ICE gathering complete');
-            }
-          };
-          
-          // Create a dummy offer to trigger ICE gathering
-          await testPc.createOffer({ offerToReceiveVideo: true });
-          
-          // Close after 5 seconds
-          setTimeout(() => {
-            testPc.close();
-            console.log('🧪 TURN test complete');
-          }, 5000);
-        } catch (err) {
-          console.error('❌ TURN test failed:', err);
-        }
-      };
-      
-      testTurnServers();
-    }
-  }, []);
+  console.log('📱 Device:', isMobileDevice ? 'MOBILE' : 'DESKTOP');
 
   // Auto-join when banner button is clicked
   useEffect(() => {
@@ -813,41 +789,21 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         }
       };
 
-      // Monitor ICE connection state
+      // Monitor ICE connection state - SIMPLIFIED
       peerConnection.oniceconnectionstatechange = () => {
-        addDebugLog('📊 ICE State: ' + peerConnection.iceConnectionState);
-        if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
-          console.log('✅ ICE connection established');
+        const iceState = peerConnection.iceConnectionState;
+        addDebugLog('📊 ICE: ' + iceState);
+        console.log('ICE state:', iceState);
+        
+        if (iceState === 'connected' || iceState === 'completed') {
+          addDebugLog('✅ ICE Connected!');
           setConnectionStatus('connected');
           setError(null);
-        } else if (peerConnection.iceConnectionState === 'checking') {
-          console.log('🔍 Checking ICE connectivity...');
-          setConnectionStatus('connecting');
-        } else if (peerConnection.iceConnectionState === 'disconnected') {
-          console.log('⚠️ ICE connection disconnected, waiting for reconnection...');
-          setConnectionStatus('reconnecting');
-        } else if (peerConnection.iceConnectionState === 'failed') {
-          addDebugLog('❌ ICE connection failed, attempting restart...');
-          // Try to restart ICE (async function)
-          (async () => {
-            try {
-              const offer = await peerConnection.createOffer({ iceRestart: true });
-              await peerConnection.setLocalDescription(offer);
-              socket.emit('screenshare:ice-restart', {
-                roomCode,
-                offer,
-                fromUserId: authUser.id,
-                toUserId: fromUserId,
-              });
-              addDebugLog('🔄 ICE restart offer sent');
-              setConnectionStatus('reconnecting');
-            } catch (restartErr) {
-              addDebugLog('❌ ICE restart failed: ' + restartErr.message);
-              setError('🔴 Network Connection Failed\n\nUnable to establish connection.\n\nThis might be due to:\n• Firewall blocking connection\n• Network restrictions\n• Internet connection issues\n\nTry:\n• Check your internet connection\n• Try a different network (switch WiFi/mobile data)\n• Ask presenter to restart sharing\n• Refresh the page and try again');
-              setConnectionStatus('disconnected');
-              setIsViewing(false);
-            }
-          })();
+        } else if (iceState === 'failed') {
+          addDebugLog('❌ ICE Failed');
+          setConnectionStatus('disconnected');
+          setIsViewing(false);
+          setError('Connection failed.\n\nTry:\n1. Refresh page\n2. Ask presenter to restart\n3. Check internet connection');
         }
       };
 
@@ -1118,82 +1074,13 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
           }
         };
 
-        // Monitor connection state
-        peerConnection.onconnectionstatechange = async () => {
-          console.log('Presenter connection state with', userName, ':', peerConnection.connectionState);
+        // Monitor connection state - SIMPLIFIED
+        peerConnection.onconnectionstatechange = () => {
+          console.log('Presenter → ', userName, ':', peerConnection.connectionState);
           if (peerConnection.connectionState === 'connected') {
-            console.log('✅ Successfully connected to viewer:', userName);
+            console.log('✅ Connected to:', userName);
           } else if (peerConnection.connectionState === 'failed') {
-            console.error('❌ Connection failed with viewer:', userName);
-            console.log('🔄 Retrying with forced TURN relay for viewer:', userName);
-            
-            // Retry with forced relay
-            try {
-              // Close failed connection
-              peerConnection.close();
-              peerConnectionsRef.current.delete(userId);
-              
-              // Create new connection with forced relay
-              const relayConfig = {
-                ...rtcConfig,
-                iceTransportPolicy: 'relay'
-              };
-              console.log('📋 Presenter using relay mode (forced TURN) for:', userName);
-              
-              const newPc = new RTCPeerConnection(relayConfig);
-              peerConnectionsRef.current.set(userId, newPc);
-              
-              // Add tracks
-              if (streamRef.current) {
-                streamRef.current.getTracks().forEach(track => {
-                  newPc.addTrack(track, streamRef.current);
-                });
-              }
-              
-              // Set up handlers
-              newPc.onicecandidate = (event) => {
-                if (event.candidate) {
-                  console.log('🧊 Presenter sending RELAY ICE candidate to:', userName);
-                  socket.emit('screenshare:ice-candidate', {
-                    roomCode,
-                    candidate: event.candidate,
-                    fromUserId: authUser.id,
-                    toUserId: userId,
-                  });
-                }
-              };
-              
-              newPc.onconnectionstatechange = () => {
-                console.log('Presenter RELAY connection state with', userName, ':', newPc.connectionState);
-                if (newPc.connectionState === 'connected') {
-                  console.log('✅ RELAY connection successful with viewer:', userName);
-                } else if (newPc.connectionState === 'failed') {
-                  console.error('❌ RELAY connection also failed with viewer:', userName);
-                }
-              };
-              
-              newPc.oniceconnectionstatechange = () => {
-                console.log('Presenter RELAY ICE state with', userName, ':', newPc.iceConnectionState);
-              };
-              
-              // Create and send new offer
-              const offer = await newPc.createOffer({
-                offerToReceiveAudio: false,
-                offerToReceiveVideo: true,
-              });
-              await newPc.setLocalDescription(offer);
-              
-              console.log('📤 Sending RELAY offer to viewer:', userName);
-              socket.emit('screenshare:offer', {
-                roomCode,
-                offer,
-                fromUserId: authUser.id,
-                toUserId: userId,
-              });
-              
-            } catch (retryErr) {
-              console.error('❌ Presenter retry failed for viewer:', userName, retryErr);
-            }
+            console.log('❌ Connection failed with:', userName);
           }
         };
 
