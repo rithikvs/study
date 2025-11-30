@@ -251,14 +251,18 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         remoteVideoRef.current.srcObject = null;
       }
       
-      // If we have a local stream already, make sure it's displayed
+      // If we have a local stream already, make sure it's displayed and isSharing is true
       if (localVideoRef.current && streamRef.current) {
+        console.log('✅ Stream exists, setting up local video');
         localVideoRef.current.srcObject = streamRef.current;
+        setIsSharing(true); // Ensure isSharing is true
         setTimeout(() => {
           if (localVideoRef.current) {
             localVideoRef.current.play().catch(e => console.error('Play error:', e));
           }
         }, 100);
+      } else {
+        console.log('⚠️ No stream found in handlePresenterStarted for myself');
       }
     } else {
       console.log('👁️ I am a viewer');
@@ -307,14 +311,16 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
     try {
       setError(null);
       
-      // IMPORTANT: Stop viewing first if we were a viewer
-      if (isViewing) {
-        console.log('🛑 Stopping viewer mode before starting to share');
+      // IMPORTANT: Clean up any previous state completely
+      if (isViewing || presenter) {
+        console.log('🛑 Cleaning up previous state before starting to share');
         setIsViewing(false);
         setConnectionStatus('disconnected');
+        
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = null;
         }
+        
         // Close all viewer connections
         peerConnectionsRef.current.forEach(pc => {
           try {
@@ -323,6 +329,9 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         });
         peerConnectionsRef.current.clear();
         pendingCandidatesRef.current.clear();
+        
+        // Wait a moment for cleanup to complete
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
       
       let stream = null;
