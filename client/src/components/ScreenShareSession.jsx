@@ -1174,7 +1174,16 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
 
         // Monitor ICE connection for presenter
         peerConnection.oniceconnectionstatechange = () => {
-          console.log('Presenter ICE state with', userName, ':', peerConnection.iceConnectionState);
+          const state = peerConnection.iceConnectionState;
+          console.log('Presenter ICE state with', userName, ':', state);
+          
+          if (state === 'connected' || state === 'completed') {
+            console.log('✅✅ ICE CONNECTED to viewer:', userName);
+          } else if (state === 'failed') {
+            console.error('❌ ICE FAILED with viewer:', userName);
+          } else if (state === 'disconnected') {
+            console.warn('⚠️ ICE DISCONNECTED from viewer:', userName);
+          }
         };
 
         // Create and send offer with explicit constraints
