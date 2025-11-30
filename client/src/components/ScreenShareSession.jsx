@@ -45,20 +45,30 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       // Google STUN servers
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      // Free TURN servers (numb.viagenie.ca)
+      // Free public TURN servers with UDP/TCP
       {
-        urls: 'turn:numb.viagenie.ca',
+        urls: [
+          'turn:numb.viagenie.ca',
+          'turn:numb.viagenie.ca?transport=tcp'
+        ],
         username: 'webrtc@live.com',
         credential: 'muazkh'
       },
-      // Metered TURN servers
+      // Metered TURN servers with UDP
       {
         urls: 'turn:a.relay.metered.ca:80',
         username: 'e21d09ead091c0c763d3e78f',
         credential: 'h5xjAVDq3ac3JSl1',
       },
+      // Metered TURN servers with TLS
       {
-        urls: 'turn:a.relay.metered.ca:443',
+        urls: 'turn:a.relay.metered.ca:443?transport=tcp',
+        username: 'e21d09ead091c0c763d3e78f',
+        credential: 'h5xjAVDq3ac3JSl1',
+      },
+      // Additional Metered endpoints
+      {
+        urls: 'turns:a.relay.metered.ca:443?transport=tcp',
         username: 'e21d09ead091c0c763d3e78f',
         credential: 'h5xjAVDq3ac3JSl1',
       },
