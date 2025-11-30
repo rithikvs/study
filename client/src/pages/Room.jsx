@@ -339,7 +339,14 @@ export default function Room() {
           </div>
           <div className="flex gap-2">
             <button 
-              onClick={() => setShowScreenShare(true)} 
+              onClick={() => {
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                if (isMobile) {
+                  alert('📱 Mobile Devices Not Supported\n\nScreen sharing is only available on laptop/desktop browsers.\n\n💻 Please use your laptop or desktop.');
+                  return;
+                }
+                setShowScreenShare(true);
+              }} 
               className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
