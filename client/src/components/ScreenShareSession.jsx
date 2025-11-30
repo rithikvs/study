@@ -39,34 +39,46 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   // Detect if mobile for forced TURN usage
   const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
-  // WebRTC configuration with STUN and TURN servers
+  // WebRTC configuration - FORCE RELAY for mobile to ensure connection
   const rtcConfig = {
     iceServers: [
-      // Google STUN servers
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      // Free public TURN servers with UDP/TCP
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' },
+      // OpenRelay TURN - Free public TURN server
       {
-        urls: [
-          'turn:numb.viagenie.ca',
-          'turn:numb.viagenie.ca?transport=tcp'
-        ],
-        username: 'webrtc@live.com',
-        credential: 'muazkh'
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
       },
-      // Metered TURN servers with UDP
+      {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
+      // Metered.ca TURN servers
       {
         urls: 'turn:a.relay.metered.ca:80',
         username: 'e21d09ead091c0c763d3e78f',
         credential: 'h5xjAVDq3ac3JSl1',
       },
-      // Metered TURN servers with TLS
       {
-        urls: 'turn:a.relay.metered.ca:443?transport=tcp',
+        urls: 'turn:a.relay.metered.ca:80?transport=tcp',
         username: 'e21d09ead091c0c763d3e78f',
         credential: 'h5xjAVDq3ac3JSl1',
       },
-      // Additional Metered endpoints
+      {
+        urls: 'turn:a.relay.metered.ca:443',
+        username: 'e21d09ead091c0c763d3e78f',
+        credential: 'h5xjAVDq3ac3JSl1',
+      },
       {
         urls: 'turns:a.relay.metered.ca:443?transport=tcp',
         username: 'e21d09ead091c0c763d3e78f',
@@ -74,7 +86,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       },
     ],
     iceCandidatePoolSize: 10,
-    iceTransportPolicy: 'all',
+    iceTransportPolicy: isMobileDevice ? 'relay' : 'all', // Force TURN relay for mobile
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require',
   };
@@ -975,19 +987,24 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       console.log('👁️ Viewer requesting to join:', userName, '(Device:', isMobile ? 'MOBILE' : 'DESKTOP', ')');
 
       try {
-        // Use same config for all viewers - WebRTC will find the best path
+        // CRITICAL: Use relay mode for mobile viewers
+        const viewerConfig = isMobile ? {
+          ...rtcConfig,
+          iceTransportPolicy: 'relay' // Force TURN relay for mobile viewers
+        } : rtcConfig;
+        
         console.log('🔧 Creating peer connection for', userName, ':', {
           isMobile,
-          iceTransportPolicy: rtcConfig.iceTransportPolicy,
-          iceServers: rtcConfig.iceServers.length + ' servers'
+          iceTransportPolicy: viewerConfig.iceTransportPolicy,
+          iceServers: viewerConfig.iceServers.length + ' servers'
         });
         
         if (isMobile) {
           console.log('📱 Mobile viewer detected:', userName);
-          console.log('📱 Will try all connection methods (host → srflx → relay)');
+          console.log('📱 FORCING TURN RELAY mode for guaranteed connection');
         }
         
-        const peerConnection = new RTCPeerConnection(rtcConfig);
+        const peerConnection = new RTCPeerConnection(viewerConfig);
         peerConnectionsRef.current.set(userId, peerConnection);
         
         console.log('✅ Peer connection created for', userName);
