@@ -3,6 +3,92 @@ import socket from '../lib/socket';
 import { useApp } from '../context/AppContext';
 
 export default function ScreenShareSession({ roomCode, onClose, autoJoinPresenter, triggerAutoJoin }) {
+  // 🚫 CRITICAL: Block mobile devices IMMEDIATELY before ANY state initialization
+  const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|Windows Phone|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent);
+  
+  if (isMobileDevice) {
+    // IMMEDIATE BLOCK - No state, no effects, no logic runs on mobile
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(15, 23, 42, 0.98)',
+        zIndex: 99999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px'
+      }}>
+        <div style={{
+          background: '#1e293b',
+          borderRadius: '20px',
+          padding: '40px 32px',
+          maxWidth: '420px',
+          textAlign: 'center',
+          boxShadow: '0 25px 50px rgba(0,0,0,0.5)',
+          border: '3px solid #ef4444',
+          animation: 'fadeIn 0.3s ease-in'
+        }}>
+          <div style={{ fontSize: '80px', marginBottom: '24px' }}>📱🚫</div>
+          <h2 style={{
+            color: 'white',
+            fontSize: '28px',
+            fontWeight: 'bold',
+            marginBottom: '16px',
+            lineHeight: '1.3'
+          }}>
+            Mobile Devices<br/>Not Supported
+          </h2>
+          <p style={{
+            color: '#94a3b8',
+            fontSize: '17px',
+            marginBottom: '28px',
+            lineHeight: '1.6'
+          }}>
+            Screen sharing is only available on laptop and desktop computers.
+          </p>
+          <div style={{
+            background: '#1e40af',
+            border: '2px solid #3b82f6',
+            borderRadius: '12px',
+            padding: '20px',
+            marginBottom: '28px'
+          }}>
+            <p style={{
+              color: '#93c5fd',
+              fontSize: '15px',
+              fontWeight: '600',
+              margin: 0
+            }}>
+              💻 Please use your laptop or desktop browser
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              width: '100%',
+              padding: '16px 24px',
+              background: '#ef4444',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              fontSize: '18px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)'
+            }}
+          >
+            ✕ Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
+  // Desktop-only code from here
   const { authUser } = useApp();
   const [isSharing, setIsSharing] = useState(false);
   const [isViewing, setIsViewing] = useState(false);
@@ -35,35 +121,6 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   const pendingCandidatesRef = useRef(new Map()); // Queue for ICE candidates
   const canvasRef = useRef(null);
   const drawingContextRef = useRef(null);
-
-  // Detect if mobile - BLOCK ENTIRELY if mobile device
-  const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|Windows Phone|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent);
-  
-  // IMMEDIATELY block mobile devices - don't run any useEffects or logic
-  if (isMobileDevice) {
-    return (
-      <div className="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center p-6">
-        <div className="bg-slate-800 rounded-lg p-8 max-w-md text-center shadow-2xl border border-slate-700">
-          <div className="text-6xl mb-6">📱🚫</div>
-          <h2 className="text-2xl font-bold text-white mb-4">Mobile Devices Not Supported</h2>
-          <p className="text-gray-300 mb-6">
-            Screen sharing only works on laptop and desktop browsers.
-          </p>
-          <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-4 mb-6">
-            <p className="text-blue-300 text-sm">
-              💻 Please use your laptop or desktop computer to share or view screens.
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-full px-6 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-600 font-medium transition"
-          >
-            ✕ Close
-          </button>
-        </div>
-      </div>
-    );
-  }
   
   // WebRTC configuration - base config (we'll override per-connection for mobile viewers)
   const rtcConfig = {
