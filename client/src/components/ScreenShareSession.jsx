@@ -118,7 +118,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
     rtcpMuxPolicy: 'require',
   };
   
-  console.log('📱 Device:', isMobileDevice ? 'MOBILE' : 'DESKTOP');
+  console.log('💻 Device: DESKTOP (Mobile blocked at component level)');
 
   // Auto-join when banner button is clicked
   useEffect(() => {
@@ -272,16 +272,6 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   }
 
   async function startSharing() {
-    // Check device type
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    
-    // Block mobile devices completely
-    if (isMobile) {
-      setError('📱 Mobile Devices Not Supported\n\nScreen sharing only works on laptop/desktop browsers.\n\n💻 Please use your laptop or desktop to share screens.');
-      return;
-    }
-    
     try {
       setError(null);
       
@@ -305,34 +295,18 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       
       let stream = null;
       
-      console.log('📱 Device detected:', { isMobile, isAndroid, userAgent: navigator.userAgent });
+      console.log('🖥️ Desktop screen sharing initiated');
       
-      // Try screen sharing for all devices (desktop and mobile)
+      // Check if screen sharing is available
       if (!navigator.mediaDevices?.getDisplayMedia) {
-        // getDisplayMedia not available at all
-        const noSupportError = isMobile
-          ? '📱 Screen Sharing API Not Found\n\n' +
-            'Your browser doesn\'t have screen sharing support.\n\n' +
-            '✅ Fix this:\n' +
-            '1. Install/Open Chrome browser from Play Store\n' +
-            '2. Update Chrome to latest version\n' +
-            '3. Open this link directly in Chrome (not in-app browser)\n' +
-            '4. Check Chrome version: chrome://version\n' +
-            '   (Must be version 72 or higher)\n\n' +
-            '💡 If you clicked a link from WhatsApp/Instagram/etc, copy the link and paste it in Chrome app instead.\n\n' +
-            '❌ Note: iOS devices don\'t support screen sharing yet.'
-          : '🖥️ Screen sharing not available.\n\nPlease use a modern browser:\n• Chrome\n• Firefox\n• Edge\n• Safari';
-        setError(noSupportError);
+        setError('🖥️ Screen sharing not available.\n\nPlease use a modern browser:\n• Chrome\n• Firefox\n• Edge\n• Safari');
         return;
       }
 
-      console.log('🖥️ Attempting screen share...', { isMobile, isAndroid });
+      console.log('🖥️ Attempting screen share...');
       
-      // Use simpler constraints for mobile to increase compatibility
-      const constraints = isMobile ? {
-        video: true, // More permissive for mobile browsers
-        audio: false,
-      } : {
+      // Desktop screen sharing constraints
+      const constraints = {
         video: {
           cursor: 'always',
           width: { ideal: 1920 },
@@ -388,35 +362,12 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       }
       
       if (err.name === 'NotSupportedError' || err.name === 'NotFoundError') {
-        const errorMsg = isMobile 
-          ? '📱 Screen Sharing Not Available\n\n' +
-            'Your mobile browser doesn\'t support screen sharing.\n\n' +
-            '✅ Try these steps:\n' +
-            '1. Open Chrome browser (not Chrome Custom Tab)\n' +
-            '2. Type chrome://version in address bar\n' +
-            '3. Check if version is 72 or higher\n' +
-            '4. If lower, update Chrome from Play Store\n' +
-            '5. Come back and try again\n\n' +
-            '💡 Make sure you\'re using the actual Chrome app, not an in-app browser.\n\n' +
-            '❌ iOS Safari doesn\'t support mobile screen sharing.'
-          : '🖥️ Screen sharing not supported in this browser.\n\nPlease use:\n• Chrome (recommended)\n• Firefox\n• Edge\n• Safari on macOS';
-        setError(errorMsg);
+        setError('🖥️ Screen sharing not supported in this browser.\n\nPlease use:\n• Chrome (recommended)\n• Firefox\n• Edge\n• Safari on macOS');
         return;
       }
       
       // Generic error
-      const genericError = isMobile
-        ? '📱 Unable to Start Screen Sharing\n\n' +
-          '🔍 Troubleshooting:\n' +
-          '1. Are you using Chrome browser? (Required)\n' +
-          '2. Did you deny the permission? Try again and allow\n' +
-          '3. Check Chrome version: Type chrome://version\n' +
-          '4. Update Chrome if version is below 72\n' +
-          '5. Restart Chrome and try again\n\n' +
-          '📱 Samsung Users: Chrome works better than Samsung Internet\n\n' +
-          '💡 Copy this URL and open directly in Chrome app if you\'re in an in-app browser.'
-        : '🖥️ Screen Sharing Failed\n\nPlease:\n• Use Chrome, Firefox, or Edge browser\n• Make sure you selected a screen or window to share\n• Try refreshing the page and trying again\n\nError: ' + (err.message || 'Unknown error');
-      setError(genericError);
+      setError('🖥️ Screen Sharing Failed\n\nPlease:\n• Use Chrome, Firefox, or Edge browser\n• Make sure you selected a screen or window to share\n• Try refreshing the page and trying again\n\nError: ' + (err.message || 'Unknown error'));
     }
   }
 
@@ -586,13 +537,6 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   }
 
   async function joinViewing() {
-    // Block mobile devices completely
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    if (isMobile) {
-      setError('📱 Mobile Devices Not Supported\n\nScreen viewing only works on laptop/desktop browsers.\n\n💻 Please use your laptop or desktop to view screens.');
-      return;
-    }
-    
     if (!presenter) {
       addDebugLog('❌ No presenter found');
       return;
@@ -645,21 +589,16 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         roomCode,
         userId: authUser.id,
         userName: authUser.name,
-        // Force mobile flag when detection says so; presenter will then use TURN relay
-        isMobile: isMobileDevice,
       });
-      addDebugLog('✅ Request-view emitted (device: ' + (isMobileDevice ? 'MOBILE' : 'DESKTOP') + ')');
+      addDebugLog('✅ Request-view emitted');
       addDebugLog('⏳ Waiting for offer from presenter...');
 
-      // Set a longer timeout for mobile connections (30 seconds)
+      // Set connection timeout (30 seconds)
       const connectionTimeout = setTimeout(() => {
         if (connectionStatus === 'connecting' || connectionStatus === 'reconnecting') {
           console.log('⏰ Connection timeout after 30 seconds');
           addDebugLog('❌ Connection timeout');
-          setError('⏱️ Connection Timeout\n\nUnable to connect to presenter.\n\n' + 
-            (isMobileDevice 
-              ? 'Mobile troubleshooting:\n1. Make sure you\'re on same network as presenter\n2. Try switching between WiFi and mobile data\n3. Refresh the page and try again\n4. Check if presenter is still sharing' 
-              : 'Try:\n1. Ask presenter to restart sharing\n2. Check your firewall settings\n3. Refresh the page'));
+          setError('⏱️ Connection Timeout\n\nUnable to connect to presenter.\n\nTry:\n1. Ask presenter to restart sharing\n2. Check your firewall settings\n3. Refresh the page');
           setConnectionStatus('disconnected');
           setIsViewing(false);
         }
@@ -768,9 +707,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
               addDebugLog('⚠️ Autoplay blocked: ' + playErr.name);
               console.warn('Video play failed:', playErr);
               // Show tap-to-play message
-              if (isMobileDevice) {
-                setError('👆 Tap the video to start playback');
-              }
+              setError('👆 Click the video to start playback');
             }
           };
           
@@ -1041,31 +978,19 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
 
   // Presenter: Handle view requests and create offers for viewers
   useEffect(() => {
-    async function handleViewRequest({ userId, userName, isMobile }) {
+    async function handleViewRequest({ userId, userName }) {
       if (!isSharing || !streamRef.current) return;
       if (userId === authUser.id) return; // Don't create connection to ourselves
 
-      console.log('👁️ Viewer requesting to join:', userName, '(Device:', isMobile ? 'MOBILE' : 'DESKTOP', ')');
+      console.log('👁️ Viewer requesting to join:', userName);
 
       try {
-        // CRITICAL: Use relay mode for mobile viewers
-        const viewerConfig = isMobile ? {
-          ...rtcConfig,
-          iceTransportPolicy: 'relay', // Force TURN relay for mobile viewers
-        } : rtcConfig;
-        
         console.log('🔧 Creating peer connection for', userName, ':', {
-          isMobile,
-          iceTransportPolicy: viewerConfig.iceTransportPolicy,
-          iceServers: viewerConfig.iceServers.length + ' servers',
+          iceTransportPolicy: rtcConfig.iceTransportPolicy,
+          iceServers: rtcConfig.iceServers.length + ' servers',
         });
         
-        if (isMobile) {
-          console.log('📱 Mobile viewer detected:', userName);
-          console.log('📱 FORCING TURN RELAY mode for guaranteed connection');
-        }
-        
-        const peerConnection = new RTCPeerConnection(viewerConfig);
+        const peerConnection = new RTCPeerConnection(rtcConfig);
         peerConnectionsRef.current.set(userId, peerConnection);
         
         console.log('✅ Peer connection created for', userName);
@@ -1156,9 +1081,6 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
             });
           } else {
             console.log('✅ ICE gathering complete for', userName, '- Total:', candidateCount, 'Relay:', relayCount);
-            if (isMobile && relayCount === 0) {
-              console.error('❌❌ NO RELAY CANDIDATES GENERATED FOR MOBILE! Connection will fail!');
-            }
           }
         };
 
