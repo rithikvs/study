@@ -252,7 +252,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
     
     // Block mobile devices completely
     if (isMobile) {
-      setError('📱 Mobile Not Supported\n\nScreen sharing only works on laptop/desktop browsers.\n\n💻 Please use a computer to share or view screens.');
+      setError('📱 Mobile Devices Not Supported\n\nScreen sharing only works on laptop/desktop browsers.\n\n💻 Please use your laptop or desktop to share screens.');
       return;
     }
     
@@ -563,7 +563,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
     // Block mobile devices completely
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     if (isMobile) {
-      setError('📱 Mobile Not Supported\n\nScreen viewing only works on laptop/desktop browsers.\n\n💻 Please use a computer to view screens.');
+      setError('📱 Mobile Devices Not Supported\n\nScreen viewing only works on laptop/desktop browsers.\n\n💻 Please use your laptop or desktop to view screens.');
       return;
     }
     

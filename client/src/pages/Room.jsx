@@ -286,7 +286,7 @@ export default function Room() {
                   // Check if mobile device
                   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
                   if (isMobile) {
-                    alert('📱 Mobile Not Supported\n\nScreen sharing is only available on laptop/desktop browsers.\n\n💻 Please use a computer to view screens.');
+                    alert('📱 Mobile Devices Not Supported\n\nScreen sharing is only available on laptop/desktop browsers.\n\n💻 Please use your laptop or desktop to view screens.');
                     return;
                   }
                   
