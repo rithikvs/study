@@ -217,7 +217,12 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   }
 
   function handlePresenterStarted({ userId, userName }) {
-    console.log('📺 Presenter started event received:', userName, 'userId:', userId, 'my userId:', authUser.id);
+    console.log('\n============ PRESENTER STARTED EVENT ============');
+    console.log('📺 Presenter:', userName);
+    console.log('📺 Presenter ID:', userId);
+    console.log('📺 My ID:', authUser.id);
+    console.log('📺 Am I the presenter?', userId === authUser.id);
+    console.log('================================================\n');
     
     // If there's a new presenter (different from current), clean up old connections
     if (presenter && presenter.userId !== userId) {
@@ -389,6 +394,15 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       }
 
       // Notify server that we're presenting
+      console.log('\n============ EMITTING START-PRESENTING ============');
+      console.log('📤 Room:', roomCode);
+      console.log('📤 My ID:', authUser.id);
+      console.log('📤 My Name:', authUser.name);
+      console.log('📤 Stream ID:', stream.id);
+      console.log('📤 Stream Active:', stream.active);
+      console.log('📤 Tracks:', stream.getTracks().map(t => t.kind));
+      console.log('===================================================\n');
+      
       socket.emit('screenshare:start-presenting', {
         roomCode,
         userId: authUser.id,
@@ -630,11 +644,16 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       addDebugLog('🔄 Status: connecting');
       
       // Request to view - presenter will send us an offer
+      console.log('\n============ VIEWER REQUESTING VIEW ============');
+      console.log('👁️ Room:', roomCode);
+      console.log('👁️ My ID:', authUser.id);
+      console.log('👁️ My Name:', authUser.name);
+      console.log('👁️ Presenter ID:', presenter.userId);
+      console.log('👁️ Presenter Name:', presenter.userName);
+      console.log('👁️ Socket Connected:', socket.connected);
+      console.log('================================================\n');
+      
       addDebugLog('📤 Emitting screenshare:request-view');
-      console.log('📱 [joinViewing] Detected device:', {
-        isMobileDevice,
-        userAgent: navigator.userAgent,
-      });
       socket.emit('screenshare:request-view', {
         roomCode,
         userId: authUser.id,
@@ -1028,7 +1047,16 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
 
   // Presenter: Handle view requests and create offers for viewers
   async function handleViewRequest({ userId, userName }) {
-    console.log('🔔 View request received from:', userName, '| isSharing:', isSharing, '| hasStream:', !!streamRef.current);
+    console.log('\n============ VIEW REQUEST RECEIVED ============');
+    console.log('🔔 From:', userName);
+    console.log('🔔 From ID:', userId);
+    console.log('🔔 My ID:', authUser.id);
+    console.log('🔔 isSharing:', isSharing);
+    console.log('🔔 hasStream:', !!streamRef.current);
+    console.log('🔔 Stream Active:', streamRef.current?.active);
+    console.log('🔔 Stream ID:', streamRef.current?.id);
+    console.log('🔔 Stream Tracks:', streamRef.current?.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState })));
+    console.log('===============================================\n');
     
     if (!streamRef.current) {
       console.error('❌ No stream available to share with', userName);
