@@ -282,11 +282,28 @@ export default function Room() {
                 </div>
               </div>
               <button
-                onClick={() => {
-                  // Check if mobile device
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  
+                  // IMMEDIATE mobile check - block before ANY state changes
                   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
                   if (isMobile) {
-                    alert('📱 Mobile Devices Not Supported\n\nScreen sharing is only available on laptop/desktop browsers.\n\n💻 Please use your laptop or desktop to view screens.');
+                    // Create immediate blocking overlay
+                    const overlay = document.createElement('div');
+                    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+                    overlay.innerHTML = `
+                      <div style="background:#1e293b;border-radius:16px;padding:32px;max-width:400px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);border:2px solid #ef4444;">
+                        <div style="font-size:64px;margin-bottom:20px;">📱🚫</div>
+                        <h2 style="color:white;font-size:24px;font-weight:bold;margin-bottom:16px;">Mobile Not Supported</h2>
+                        <p style="color:#94a3b8;font-size:16px;margin-bottom:24px;line-height:1.5;">Screen sharing only works on laptop and desktop computers.</p>
+                        <div style="background:#1e40af;border:1px solid #3b82f6;border-radius:8px;padding:16px;margin-bottom:24px;">
+                          <p style="color:#93c5fd;font-size:14px;">💻 Please use your laptop or desktop browser</p>
+                        </div>
+                        <button onclick="this.parentElement.parentElement.remove()" style="width:100%;padding:12px 24px;background:#ef4444;color:white;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;">✕ Close</button>
+                      </div>
+                    `;
+                    document.body.appendChild(overlay);
                     return;
                   }
                   
@@ -339,12 +356,31 @@ export default function Room() {
           </div>
           <div className="flex gap-2">
             <button 
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // IMMEDIATE mobile check - block before ANY state changes
                 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
                 if (isMobile) {
-                  alert('📱 Mobile Devices Not Supported\n\nScreen sharing is only available on laptop/desktop browsers.\n\n💻 Please use your laptop or desktop.');
+                  // Create immediate blocking overlay
+                  const overlay = document.createElement('div');
+                  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+                  overlay.innerHTML = `
+                    <div style="background:#1e293b;border-radius:16px;padding:32px;max-width:400px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);border:2px solid #ef4444;">
+                      <div style="font-size:64px;margin-bottom:20px;">📱🚫</div>
+                      <h2 style="color:white;font-size:24px;font-weight:bold;margin-bottom:16px;">Mobile Not Supported</h2>
+                      <p style="color:#94a3b8;font-size:16px;margin-bottom:24px;line-height:1.5;">Screen sharing only works on laptop and desktop computers.</p>
+                      <div style="background:#1e40af;border:1px solid #3b82f6;border-radius:8px;padding:16px;margin-bottom:24px;">
+                        <p style="color:#93c5fd;font-size:14px;">💻 Please use your laptop or desktop browser</p>
+                      </div>
+                      <button onclick="this.parentElement.parentElement.remove()" style="width:100%;padding:12px 24px;background:#ef4444;color:white;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;">✕ Close</button>
+                    </div>
+                  `;
+                  document.body.appendChild(overlay);
                   return;
                 }
+                
                 setShowScreenShare(true);
               }} 
               className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2"
