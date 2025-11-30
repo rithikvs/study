@@ -36,10 +36,10 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   const canvasRef = useRef(null);
   const drawingContextRef = useRef(null);
 
-  // Detect if mobile for forced TURN usage
-  const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  // Detect if mobile for forced TURN usage (broader detection, includes most mobile browsers)
+  const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|Windows Phone|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent);
   
-  // WebRTC configuration - FORCE RELAY for mobile to ensure connection
+  // WebRTC configuration - base config (we'll override per-connection for mobile viewers)
   const rtcConfig = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
@@ -86,7 +86,8 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       },
     ],
     iceCandidatePoolSize: 10,
-    iceTransportPolicy: isMobileDevice ? 'relay' : 'all', // Force TURN relay for mobile
+    // Use all transports by default; we will force 'relay' explicitly where needed
+    iceTransportPolicy: 'all',
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require',
   };
@@ -597,11 +598,16 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       
       // Request to view - presenter will send us an offer
       addDebugLog('📤 Emitting screenshare:request-view');
+      console.log('📱 [joinViewing] Detected device:', {
+        isMobileDevice,
+        userAgent: navigator.userAgent,
+      });
       socket.emit('screenshare:request-view', {
         roomCode,
         userId: authUser.id,
         userName: authUser.name,
-        isMobile: isMobileDevice, // Tell presenter we're mobile so they use relay mode
+        // Force mobile flag when detection says so; presenter will then use TURN relay
+        isMobile: isMobileDevice,
       });
       addDebugLog('✅ Request-view emitted (device: ' + (isMobileDevice ? 'MOBILE' : 'DESKTOP') + ')');
       addDebugLog('⏳ Waiting for offer from presenter...');
@@ -847,14 +853,16 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
       addDebugLog('✅ Remote desc set');
       
-      // Process pending ICE candidates
+      // Process pending ICE candidates now that remote description is set
       const pending = pendingCandidatesRef.current.get(fromUserId) || [];
       if (pending.length > 0) {
         addDebugLog('🧊 Adding ' + pending.length + ' queued candidates');
         for (const c of pending) {
           try {
             await peerConnection.addIceCandidate(new RTCIceCandidate(c));
-          } catch (err) { console.warn('ICE candidate add failed', err); }
+          } catch (err) {
+            console.warn('ICE candidate add failed', err);
+          }
         }
         pendingCandidatesRef.current.delete(fromUserId);
       }
@@ -922,59 +930,38 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   }
 
   // Presenter: Handle ICE restart offer from viewer
+  // Viewer will send a fresh offer; presenter responds with a new answer
   async function handleIceRestartOffer({ offer, fromUserId, toUserId }) {
     if (toUserId !== authUser.id) return;
     if (!isSharing || !streamRef.current) return;
+
     const peerConnection = peerConnectionsRef.current.get(fromUserId);
     if (!peerConnection) {
       console.warn('⚠️ No peer connection found for ICE restart from:', fromUserId);
       return;
     }
+
     try {
       console.log('🔄 Presenter handling ICE restart offer from viewer:', fromUserId);
+
+      // Replace existing remote description with the new offer
       await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
+      // Create and set a new answer
       const answer = await peerConnection.createAnswer();
       await peerConnection.setLocalDescription(answer);
+
+      // Send the new answer back to the viewer
       socket.emit('screenshare:answer', {
         roomCode,
         answer,
         fromUserId: authUser.id,
         toUserId: fromUserId,
       });
+
       console.log('✅ Presenter sent ICE restart answer to viewer:', fromUserId);
     } catch (err) {
       console.error('❌ Presenter failed to process ICE restart offer:', err);
-    }
-  }
-
-  async function handleIceCandidate({ candidate, fromUserId, toUserId }) {
-    // Only handle candidates meant for us
-    if (toUserId !== authUser.id) return;
-    
-    const peerConnection = peerConnectionsRef.current.get(fromUserId);
-    if (!peerConnection) {
-      console.warn('⚠️ No peer connection found for ICE candidate from:', fromUserId);
-      return;
-    }
-    
-    try {
-      // Check if remote description is set
-      if (!peerConnection.remoteDescription || peerConnection.signalingState !== 'stable') {
-        console.log('⏳ Queuing ICE candidate (waiting for stable state):', candidate.type || 'unknown');
-        // Store candidate in queue
-        if (!pendingCandidatesRef.current.has(fromUserId)) {
-          pendingCandidatesRef.current.set(fromUserId, []);
-        }
-        pendingCandidatesRef.current.get(fromUserId).push(candidate);
-        return;
-      }
-      
-      console.log('🧊 Adding ICE candidate:', candidate.type || 'unknown type', '| candidate:', candidate.candidate?.substring(0, 50));
-      await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-      console.log('✅ ICE candidate added successfully');
-    } catch (err) {
-      console.error('❌ Error adding ICE candidate:', err.message);
-      // Don't fail the connection for individual candidate errors
     }
   }
 
@@ -990,13 +977,13 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         // CRITICAL: Use relay mode for mobile viewers
         const viewerConfig = isMobile ? {
           ...rtcConfig,
-          iceTransportPolicy: 'relay' // Force TURN relay for mobile viewers
+          iceTransportPolicy: 'relay', // Force TURN relay for mobile viewers
         } : rtcConfig;
         
         console.log('🔧 Creating peer connection for', userName, ':', {
           isMobile,
           iceTransportPolicy: viewerConfig.iceTransportPolicy,
-          iceServers: viewerConfig.iceServers.length + ' servers'
+          iceServers: viewerConfig.iceServers.length + ' servers',
         });
         
         if (isMobile) {
