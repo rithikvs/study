@@ -576,7 +576,7 @@ export default function Room() {
       )}
 
       {/* Screen Share Session */}
-      {showScreenShare && (
+      {showScreenShare && !(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) && (
         <ScreenShareSession 
           roomCode={roomCode} 
           onClose={() => setShowScreenShare(false)}
