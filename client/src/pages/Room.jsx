@@ -257,8 +257,8 @@ export default function Room() {
     <div className="min-h-screen bg-gradient-to-b from-white to-slate-100">
       <Navbar />
       
-      {/* Screen Share Notification Banner */}
-      {screenSharePresenter && (
+      {/* Screen Share Notification Banner - Hidden on mobile */}
+      {screenSharePresenter && !(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) && (
         <div className="bg-gradient-to-r from-green-500 to-blue-500 text-white shadow-lg">
           <div className="mx-auto max-w-6xl px-4 py-3 md:py-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -355,6 +355,8 @@ export default function Room() {
             )}
           </div>
           <div className="flex gap-2">
+            {/* Screen Share button - Hidden on mobile */}
+            {!(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) && (
             <button 
               onClick={(e) => {
                 e.preventDefault();
@@ -390,6 +392,7 @@ export default function Room() {
               </svg>
               Screen Share
             </button>
+            )}
             <button onClick={openNoteModal} className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark">New Note</button>
             <label className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 cursor-pointer flex items-center gap-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
