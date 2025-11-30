@@ -1188,6 +1188,34 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
     return () => socket.off('screenshare:request-view', handleViewRequest);
   }, [isSharing, authUser, roomCode]);
 
+  // Check if mobile device - block entire screen share UI
+  
+  
+  if (isMobileDevice) {
+    return (
+      <div className="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center p-6">
+        <div className="bg-slate-800 rounded-lg p-8 max-w-md text-center shadow-2xl border border-slate-700">
+          <div className="text-6xl mb-6">📱🚫</div>
+          <h2 className="text-2xl font-bold text-white mb-4">Mobile Devices Not Supported</h2>
+          <p className="text-gray-300 mb-6">
+            Screen sharing only works on laptop and desktop browsers.
+          </p>
+          <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-4 mb-6">
+            <p className="text-blue-300 text-sm">
+              💻 Please use your laptop or desktop computer to share or view screens.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-full px-6 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-600 font-medium transition"
+          >
+            ✕ Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col">
       {/* Header */}
