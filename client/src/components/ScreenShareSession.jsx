@@ -1035,11 +1035,11 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
 
     console.log('👁️ Viewer requesting to join:', userName);
 
-      try {
-        console.log('🔧 Creating peer connection for', userName, ':', {
-          iceTransportPolicy: rtcConfig.iceTransportPolicy,
-          iceServers: rtcConfig.iceServers.length + ' servers',
-        });
+    try {
+      console.log('🔧 Creating peer connection for', userName, ':', {
+        iceTransportPolicy: rtcConfig.iceTransportPolicy,
+        iceServers: rtcConfig.iceServers.length + ' servers',
+      });
         
         const peerConnection = new RTCPeerConnection(rtcConfig);
         peerConnectionsRef.current.set(userId, peerConnection);
@@ -1181,16 +1181,16 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         });
         console.log('✅ Offer sent to viewer:', userName);
 
-      } catch (err) {
-        console.error('❌ Error creating offer for viewer:', userName, err);
-        // Notify the viewer that connection failed
-        socket.emit('screenshare:connection-error', {
-          roomCode,
-          toUserId: userId,
-          error: 'Presenter failed to create connection. Please try again.'
-        });
-      }
+    } catch (err) {
+      console.error('❌ Error creating offer for viewer:', userName, err);
+      // Notify the viewer that connection failed
+      socket.emit('screenshare:connection-error', {
+        roomCode,
+        toUserId: userId,
+        error: 'Presenter failed to create connection. Please try again.'
+      });
     }
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col">
