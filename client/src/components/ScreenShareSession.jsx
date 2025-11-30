@@ -39,52 +39,18 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   // Detect if mobile for forced TURN usage
   const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
-  // WebRTC configuration with multiple reliable TURN servers
+  // Simplified WebRTC configuration - works on both desktop and mobile
   const rtcConfig = {
     iceServers: [
-      // STUN servers
+      // Google STUN servers (always reliable)
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
       { urls: 'stun:stun3.l.google.com:19302' },
-      // OpenRelay TURN servers (public and free)
-      {
-        urls: 'turn:openrelay.metered.ca:80',
-        username: 'openrelayproject',
-        credential: 'openrelayproject',
-      },
-      {
-        urls: 'turn:openrelay.metered.ca:80?transport=tcp',
-        username: 'openrelayproject',
-        credential: 'openrelayproject',
-      },
-      {
-        urls: 'turn:openrelay.metered.ca:443',
-        username: 'openrelayproject',
-        credential: 'openrelayproject',
-      },
-      {
-        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-        username: 'openrelayproject',
-        credential: 'openrelayproject',
-      },
-      // Twilio STUN/TURN (public)
-      { urls: 'stun:global.stun.twilio.com:3478' },
-      {
-        urls: 'turn:global.turn.twilio.com:3478?transport=udp',
-        username: 'f4b4035eaa76f4a55de5f4351567653ee4ff6fa97b50b6b334fcc1be9c27212d',
-        credential: '4O/AmLYOwkaD1z2YDI9ksJH07MU=',
-      },
-      {
-        urls: 'turn:global.turn.twilio.com:3478?transport=tcp',
-        username: 'f4b4035eaa76f4a55de5f4351567653ee4ff6fa97b50b6b334fcc1be9c27212d',
-        credential: '4O/AmLYOwkaD1z2YDI9ksJH07MU=',
-      },
+      { urls: 'stun:stun4.l.google.com:19302' },
     ],
     iceCandidatePoolSize: 10,
-    // Use 'all' for everyone - let WebRTC try all connection methods
-    // This includes host, srflx, and relay candidates
-    iceTransportPolicy: 'all',
+    iceTransportPolicy: 'all', // Try all methods: host → srflx → relay
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require',
   };
@@ -642,15 +608,19 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       addDebugLog('✅ Request-view emitted (device: ' + (isMobileDevice ? 'MOBILE' : 'DESKTOP') + ')');
       addDebugLog('⏳ Waiting for offer from presenter...');
 
-      // Set a timeout for connection with retry option
+      // Set a longer timeout for mobile connections (30 seconds)
       const connectionTimeout = setTimeout(() => {
         if (connectionStatus === 'connecting' || connectionStatus === 'reconnecting') {
-          console.log('⏰ Connection timeout after 20 seconds');
-          setError('⏱️ Connection Timeout\n\nUnable to connect to presenter.\n\nPossible issues:\n• Mobile network blocking WebRTC\n• Presenter\'s firewall settings\n• Network connectivity problems\n\nTry:\n1. Ask presenter to restart sharing\n2. Switch between WiFi and mobile data\n3. Refresh the page\n4. Try on a different network');
+          console.log('⏰ Connection timeout after 30 seconds');
+          addDebugLog('❌ Connection timeout');
+          setError('⏱️ Connection Timeout\n\nUnable to connect to presenter.\n\n' + 
+            (isMobileDevice 
+              ? 'Mobile troubleshooting:\n1. Make sure you\'re on same network as presenter\n2. Try switching between WiFi and mobile data\n3. Refresh the page and try again\n4. Check if presenter is still sharing' 
+              : 'Try:\n1. Ask presenter to restart sharing\n2. Check your firewall settings\n3. Refresh the page'));
           setConnectionStatus('disconnected');
           setIsViewing(false);
         }
-      }, 20000); // 20 second timeout
+      }, 30000); // 30 second timeout for mobile compatibility
       
       // Clean up timeout if component unmounts
       return () => clearTimeout(connectionTimeout);
@@ -683,12 +653,17 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       }
       
       addDebugLog('🔨 Creating RTCPeerConnection...');
+      console.log('Creating peer connection with config:', {
+        iceServers: rtcConfig.iceServers.length,
+        iceTransportPolicy: rtcConfig.iceTransportPolicy
+      });
+      
       const peerConnection = new RTCPeerConnection(rtcConfig);
       peerConnectionsRef.current.set(fromUserId, peerConnection);
-      addDebugLog('✅ Peer connection created');
+      addDebugLog('✅ Peer connection created with ' + rtcConfig.iceServers.length + ' ICE servers');
 
       // Set up ALL event handlers FIRST
-      addDebugLog('🔧 Setting up handlers...');
+      addDebugLog('🔧 Setting up event handlers...');
 
       // Handle incoming stream
       peerConnection.ontrack = (event) => {
@@ -1051,7 +1026,12 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         
         console.log('✅ Peer connection created for', userName);
 
-        // Add our stream tracks
+        // CRITICAL: Verify stream is active before adding tracks
+        if (!streamRef.current || !streamRef.current.active) {
+          console.error('❌ Stream is not active! Cannot add tracks.');
+          throw new Error('Stream is not active');
+        }
+        
         const tracks = streamRef.current.getTracks();
         console.log('📤 Adding tracks to peer connection:', tracks.map(t => t.kind));
         console.log('📊 Stream stats:', {
@@ -1060,7 +1040,17 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
           tracks: tracks.length
         });
         
+        if (tracks.length === 0) {
+          console.error('❌ No tracks available in stream!');
+          throw new Error('No tracks in stream');
+        }
+        
         tracks.forEach(track => {
+          // Verify track is live
+          if (track.readyState !== 'live') {
+            console.error('❌ Track is not live:', track.readyState);
+          }
+          
           console.log('Adding track:', {
             kind: track.kind,
             enabled: track.enabled,
@@ -1076,9 +1066,12 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
           track.onmute = () => {
             console.log('⚠️ Presenter track muted for viewer:', userName);
           };
+          track.onunmute = () => {
+            console.log('✅ Presenter track unmuted for viewer:', userName);
+          };
           
           const sender = peerConnection.addTrack(track, streamRef.current);
-          console.log('Track added, sender:', sender);
+          console.log('✅ Track successfully added, sender:', sender.track?.kind, sender.track?.readyState);
           
           // Verify track is being sent
           setTimeout(() => {
