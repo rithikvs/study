@@ -39,15 +39,22 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   // Detect if mobile for forced TURN usage
   const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
-  // WebRTC configuration - Use proven public TURN servers
+  // WebRTC configuration with multiple reliable TURN servers
   const rtcConfig = {
     iceServers: [
-      // STUN servers for discovering public IP
+      // STUN servers
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      // OpenRelay - Free public TURN servers (most reliable)
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      // OpenRelay TURN servers (public and free)
       {
         urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:80?transport=tcp',
         username: 'openrelayproject',
         credential: 'openrelayproject',
       },
@@ -61,27 +68,29 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         username: 'openrelayproject',
         credential: 'openrelayproject',
       },
-      // Backup TURN servers
+      // Twilio STUN/TURN (public)
+      { urls: 'stun:global.stun.twilio.com:3478' },
       {
-        urls: 'turn:a.relay.metered.ca:80',
-        username: 'e21d09ead091c0c763d3e78f',
-        credential: 'h5xjAVDq3ac3JSl1',
+        urls: 'turn:global.turn.twilio.com:3478?transport=udp',
+        username: 'f4b4035eaa76f4a55de5f4351567653ee4ff6fa97b50b6b334fcc1be9c27212d',
+        credential: '4O/AmLYOwkaD1z2YDI9ksJH07MU=',
       },
       {
-        urls: 'turn:a.relay.metered.ca:443',
-        username: 'e21d09ead091c0c763d3e78f',
-        credential: 'h5xjAVDq3ac3JSl1',
+        urls: 'turn:global.turn.twilio.com:3478?transport=tcp',
+        username: 'f4b4035eaa76f4a55de5f4351567653ee4ff6fa97b50b6b334fcc1be9c27212d',
+        credential: '4O/AmLYOwkaD1z2YDI9ksJH07MU=',
       },
     ],
     iceCandidatePoolSize: 10,
-    // Force relay for mobile to ensure connection through TURN
-    iceTransportPolicy: isMobileDevice ? 'relay' : 'all',
+    // Use 'all' for everyone - let WebRTC try all connection methods
+    // This includes host, srflx, and relay candidates
+    iceTransportPolicy: 'all',
     bundlePolicy: 'max-bundle',
     rtcpMuxPolicy: 'require',
   };
   
   console.log('📱 Device type:', isMobileDevice ? 'MOBILE' : 'DESKTOP');
-  console.log('🔧 ICE Transport Policy:', isMobileDevice ? 'RELAY (forced TURN)' : 'ALL (try direct first)');
+  console.log('🔧 ICE Transport Policy: ALL (host → srflx → relay)');
 
   // Test TURN server connectivity on mount (mobile only)
   useEffect(() => {
@@ -1025,25 +1034,19 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       console.log('👁️ Viewer requesting to join:', userName, '(Device:', isMobile ? 'MOBILE' : 'DESKTOP', ')');
 
       try {
-        // CRITICAL: Use relay mode for mobile viewers to match their configuration
-        const config = isMobile ? {
-          ...rtcConfig,
-          iceTransportPolicy: 'relay', // Force TURN relay for mobile compatibility
-          iceCandidatePoolSize: 10
-        } : rtcConfig;
-        
-        console.log('🔧 Config for', userName, ':', {
+        // Use same config for all viewers - WebRTC will find the best path
+        console.log('🔧 Creating peer connection for', userName, ':', {
           isMobile,
-          iceTransportPolicy: config.iceTransportPolicy,
-          iceServers: config.iceServers.length + ' servers'
+          iceTransportPolicy: rtcConfig.iceTransportPolicy,
+          iceServers: rtcConfig.iceServers.length + ' servers'
         });
         
         if (isMobile) {
-          console.log('📱 USING RELAY-ONLY MODE for mobile viewer:', userName);
-          console.log('📱 This ensures presenter sends relay candidates that mobile can use');
+          console.log('📱 Mobile viewer detected:', userName);
+          console.log('📱 Will try all connection methods (host → srflx → relay)');
         }
         
-        const peerConnection = new RTCPeerConnection(config);
+        const peerConnection = new RTCPeerConnection(rtcConfig);
         peerConnectionsRef.current.set(userId, peerConnection);
         
         console.log('✅ Peer connection created for', userName);
