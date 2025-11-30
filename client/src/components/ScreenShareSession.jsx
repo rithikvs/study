@@ -1025,18 +1025,28 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       console.log('👁️ Viewer requesting to join:', userName, '(Device:', isMobile ? 'MOBILE' : 'DESKTOP', ')');
 
       try {
-        // Use relay mode for mobile viewers from the start
+        // CRITICAL: Use relay mode for mobile viewers to match their configuration
         const config = isMobile ? {
           ...rtcConfig,
-          iceTransportPolicy: 'relay'
+          iceTransportPolicy: 'relay', // Force TURN relay for mobile compatibility
+          iceCandidatePoolSize: 10
         } : rtcConfig;
         
+        console.log('🔧 Config for', userName, ':', {
+          isMobile,
+          iceTransportPolicy: config.iceTransportPolicy,
+          iceServers: config.iceServers.length + ' servers'
+        });
+        
         if (isMobile) {
-          console.log('📱 Using RELAY mode for mobile viewer:', userName);
+          console.log('📱 USING RELAY-ONLY MODE for mobile viewer:', userName);
+          console.log('📱 This ensures presenter sends relay candidates that mobile can use');
         }
         
         const peerConnection = new RTCPeerConnection(config);
         peerConnectionsRef.current.set(userId, peerConnection);
+        
+        console.log('✅ Peer connection created for', userName);
 
         // Add our stream tracks
         const tracks = streamRef.current.getTracks();
@@ -1083,11 +1093,21 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         });
 
         // Handle ICE candidates
+        let candidateCount = 0;
+        let relayCount = 0;
         peerConnection.onicecandidate = (event) => {
           if (event.candidate) {
+            candidateCount++;
             const type = event.candidate.type || 'unknown';
             const protocol = event.candidate.protocol || '';
-            console.log('🧊 Presenter sending ICE to', userName, ':', type, '('+protocol+')', event.candidate.candidate?.substring(0, 60));
+            
+            if (type === 'relay') {
+              relayCount++;
+              console.log('✅✅ RELAY candidate #' + relayCount + ' for', userName, '('+protocol+')');
+            }
+            
+            console.log('🧊 ICE #' + candidateCount + ' to', userName, ':', type, '('+protocol+')', event.candidate.candidate?.substring(0, 60));
+            
             socket.emit('screenshare:ice-candidate', {
               roomCode,
               candidate: event.candidate,
@@ -1095,7 +1115,10 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
               toUserId: userId,
             });
           } else {
-            console.log('✅ All ICE candidates sent to', userName);
+            console.log('✅ ICE gathering complete for', userName, '- Total:', candidateCount, 'Relay:', relayCount);
+            if (isMobile && relayCount === 0) {
+              console.error('❌❌ NO RELAY CANDIDATES GENERATED FOR MOBILE! Connection will fail!');
+            }
           }
         };
 
@@ -1300,6 +1323,20 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
           </button>
         </div>
       </div>
+
+      {/* Mobile Connection Status Banner */}
+      {isMobileDevice && connectionStatus === 'connecting' && (
+        <div className="bg-yellow-600 text-white px-4 py-3 text-center font-semibold border-b-4 border-yellow-700">
+          <div className="text-xl mb-1">🔄 Connecting to Desktop...</div>
+          <div className="text-sm opacity-90">Using TURN relay servers for mobile connection</div>
+        </div>
+      )}
+      
+      {isMobileDevice && connectionStatus === 'connected' && isViewing && (
+        <div className="bg-green-600 text-white px-4 py-2 text-center font-semibold border-b-4 border-green-700">
+          <div className="text-lg">✅ Connected! Viewing {presenter?.userName}'s screen</div>
+        </div>
+      )}
 
       {/* Video Display Area */}
       <div className="flex-1 overflow-auto bg-slate-900 flex items-center justify-center p-4 md:p-8">
