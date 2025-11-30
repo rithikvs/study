@@ -81,6 +81,44 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   };
   
   console.log('📱 Device type:', isMobileDevice ? 'MOBILE' : 'DESKTOP');
+  console.log('🔧 ICE Transport Policy:', isMobileDevice ? 'RELAY (forced TURN)' : 'ALL (try direct first)');
+
+  // Test TURN server connectivity on mount (mobile only)
+  useEffect(() => {
+    if (isMobileDevice) {
+      const testTurnServers = async () => {
+        try {
+          console.log('🧪 Testing TURN server connectivity...');
+          const testPc = new RTCPeerConnection(rtcConfig);
+          
+          testPc.onicecandidate = (event) => {
+            if (event.candidate) {
+              const type = event.candidate.type || 'unknown';
+              console.log('✅ TURN test ICE candidate:', type);
+              if (type === 'relay') {
+                console.log('✅✅✅ RELAY candidates working! Mobile connection should work.');
+              }
+            } else {
+              console.log('✅ TURN test ICE gathering complete');
+            }
+          };
+          
+          // Create a dummy offer to trigger ICE gathering
+          await testPc.createOffer({ offerToReceiveVideo: true });
+          
+          // Close after 5 seconds
+          setTimeout(() => {
+            testPc.close();
+            console.log('🧪 TURN test complete');
+          }, 5000);
+        } catch (err) {
+          console.error('❌ TURN test failed:', err);
+        }
+      };
+      
+      testTurnServers();
+    }
+  }, []);
 
   // Auto-join when banner button is clicked
   useEffect(() => {
