@@ -267,7 +267,14 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         console.log('⚠️ No stream found in handlePresenterStarted for myself');
       }
     } else {
-      console.log('👁️ I am a viewer');
+      console.log('👁️ I am a viewer, auto-joining...');
+      // If we were previously viewing someone else, auto-join the new presenter
+      if (isViewing) {
+        console.log('🔄 Was viewing previous presenter, switching to new one');
+        setTimeout(() => {
+          joinViewing();
+        }, 500); // Small delay to ensure cleanup is complete
+      }
     }
     
     setError(null); // Clear any previous errors
