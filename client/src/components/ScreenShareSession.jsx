@@ -253,22 +253,50 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   }, [isSharing]);
 
   function cleanup() {
+    console.log('🧹 Cleaning up screen share...');
+    
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      console.log('🛑 Stopping all tracks');
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log('Track stopped:', track.kind);
+      });
       streamRef.current = null;
     }
 
     // Close all peer connections
-    peerConnectionsRef.current.forEach(pc => pc.close());
+    console.log('🔌 Closing peer connections:', peerConnectionsRef.current.size);
+    peerConnectionsRef.current.forEach((pc, userId) => {
+      try {
+        pc.close();
+        console.log('Closed connection to:', userId);
+      } catch (e) {
+        console.error('Error closing peer connection:', e);
+      }
+    });
     peerConnectionsRef.current.clear();
+    pendingCandidatesRef.current.clear();
 
     if (localVideoRef.current) {
       localVideoRef.current.srcObject = null;
+      console.log('🖥️ Local video cleared');
     }
 
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
+      console.log('📺 Remote video cleared');
     }
+
+    // Reset all state variables
+    setIsSharing(false);
+    setIsViewing(false);
+    setViewers([]);
+    setError(null);
+    setConnectionStatus('disconnected');
+    setIsCameraMode(false);
+    setDebugLog([]);
+    
+    console.log('✅ Cleanup complete');
   }
 
   function handlePresenterStarted({ userId, userName }) {
@@ -330,17 +358,19 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
 
   async function startSharing() {
     try {
+      console.log('🎬 Starting screen sharing...');
       setError(null);
       
-      // IMPORTANT: Stop viewing first if we were a viewer
-      if (isViewing) {
-        console.log('🛑 Stopping viewer mode before starting to share');
-        setIsViewing(false);
-        setConnectionStatus('disconnected');
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = null;
-        }
-        // Close all viewer connections
+      // CRITICAL: Clean up any existing streams/connections first
+      if (streamRef.current) {
+        console.log('🧹 Cleaning up existing stream before starting new share');
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      
+      // Close any existing peer connections
+      if (peerConnectionsRef.current.size > 0) {
+        console.log('🧹 Cleaning up existing peer connections');
         peerConnectionsRef.current.forEach(pc => {
           try {
             pc.close();
@@ -349,6 +379,19 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         peerConnectionsRef.current.clear();
         pendingCandidatesRef.current.clear();
       }
+      
+      // Clear video elements
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = null;
+      }
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = null;
+      }
+      
+      // Reset state
+      setIsViewing(false);
+      setConnectionStatus('disconnected');
+      setViewers([]);
       
       let stream = null;
       
