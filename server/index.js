@@ -191,6 +191,20 @@ io.on('connection', (socket) => {
   socket.on('screenshare:start-presenting', ({ roomCode, userId, userName }) => {
     try {
       if (!roomCode || !userId) return;
+      
+      // Check if there's already a presenter and notify them to stop
+      const roomSockets = io.sockets.adapter.rooms.get(roomCode);
+      if (roomSockets) {
+        roomSockets.forEach(socketId => {
+          const otherSocket = io.sockets.sockets.get(socketId);
+          if (otherSocket && otherSocket.data?.isPresenting && otherSocket.id !== socket.id) {
+            console.log(`⏹️ Stopping old presenter in room ${roomCode}`);
+            otherSocket.data.isPresenting = false;
+            io.to(roomCode).emit('screenshare:presenter-stopped', { userId: otherSocket.data.userId });
+          }
+        });
+      }
+      
       socket.data.isPresenting = true;
       console.log(`🎥 User ${userName} started presenting screen in room ${roomCode}`);
       io.to(roomCode).emit('screenshare:presenter-started', { userId, userName });

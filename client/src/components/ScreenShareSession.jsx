@@ -178,10 +178,40 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
 
   function handlePresenterStarted({ userId, userName }) {
     console.log('📺 Presenter started event received:', userName, 'userId:', userId, 'my userId:', authUser.id);
+    
+    // If there's a new presenter (different from current), clean up old connections
+    if (presenter && presenter.userId !== userId) {
+      console.log('🔄 New presenter detected, cleaning up old connections');
+      setIsViewing(false);
+      setConnectionStatus('disconnected');
+      
+      // Close old peer connections
+      peerConnectionsRef.current.forEach(pc => {
+        try {
+          pc.close();
+        } catch (e) {}
+      });
+      peerConnectionsRef.current.clear();
+      pendingCandidatesRef.current.clear();
+      
+      // Clear remote video
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = null;
+      }
+    }
+    
     setPresenter({ userId, userName });
-    setIsViewing(false); // Reset viewing state for everyone
+    
+    // If we're starting to present, stop being a viewer
+    if (userId === authUser.id) {
+      console.log('🎥 I am now the presenter');
+      setIsViewing(false);
+      setConnectionStatus('disconnected');
+    } else {
+      console.log('👁️ I am a viewer');
+    }
+    
     setError(null); // Clear any previous errors
-    console.log(userId === authUser.id ? '🎥 I am the presenter' : '👁️ I am a viewer');
   }
 
   function handlePresenterStopped({ userId }) {
@@ -207,8 +237,27 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
     // Check device type
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     const isAndroid = /Android/i.test(navigator.userAgent);
+    
     try {
       setError(null);
+      
+      // IMPORTANT: Stop viewing first if we were a viewer
+      if (isViewing) {
+        console.log('🛑 Stopping viewer mode before starting to share');
+        setIsViewing(false);
+        setConnectionStatus('disconnected');
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = null;
+        }
+        // Close all viewer connections
+        peerConnectionsRef.current.forEach(pc => {
+          try {
+            pc.close();
+          } catch (e) {}
+        });
+        peerConnectionsRef.current.clear();
+        pendingCandidatesRef.current.clear();
+      }
       
       let stream = null;
       
