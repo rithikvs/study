@@ -159,6 +159,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
     socket.on('screenshare:ice-candidate', handleIceCandidate);
     socket.on('screenshare:ice-restart', handleIceRestartOffer);
     socket.on('screenshare:draw', handleRemoteDrawing);
+    socket.on('screenshare:request-view', handleViewRequest);
     socket.on('screenshare:connection-error', ({ error }) => {
       console.error('❌ Connection error from presenter:', error);
       setError('❌ ' + error);
@@ -180,6 +181,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       socket.off('screenshare:ice-candidate', handleIceCandidate);
       socket.off('screenshare:ice-restart', handleIceRestartOffer);
       socket.off('screenshare:draw', handleRemoteDrawing);
+      socket.off('screenshare:request-view', handleViewRequest);
       socket.off('screenshare:connection-error');
     };
   }, [roomCode, authUser]);
@@ -1018,12 +1020,20 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   }
 
   // Presenter: Handle view requests and create offers for viewers
-  useEffect(() => {
-    async function handleViewRequest({ userId, userName }) {
-      if (!isSharing || !streamRef.current) return;
-      if (userId === authUser.id) return; // Don't create connection to ourselves
+  async function handleViewRequest({ userId, userName }) {
+    console.log('🔔 View request received from:', userName, '| isSharing:', isSharing, '| hasStream:', !!streamRef.current);
+    
+    if (!streamRef.current) {
+      console.error('❌ No stream available to share with', userName);
+      return;
+    }
+    if (!streamRef.current.active) {
+      console.error('❌ Stream is not active for', userName);
+      return;
+    }
+    if (userId === authUser.id) return; // Don't create connection to ourselves
 
-      console.log('👁️ Viewer requesting to join:', userName);
+    console.log('👁️ Viewer requesting to join:', userName);
 
       try {
         console.log('🔧 Creating peer connection for', userName, ':', {
@@ -1181,10 +1191,6 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         });
       }
     }
-
-    socket.on('screenshare:request-view', handleViewRequest);
-    return () => socket.off('screenshare:request-view', handleViewRequest);
-  }, [isSharing, authUser, roomCode]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col">
