@@ -283,6 +283,13 @@ export default function Room() {
               </div>
               <button
                 onClick={() => {
+                  // Check if mobile device
+                  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                  if (isMobile) {
+                    alert('📱 Mobile Not Supported\n\nScreen sharing is only available on laptop/desktop browsers.\n\n💻 Please use a computer to view screens.');
+                    return;
+                  }
+                  
                   if (!showScreenShare) {
                     setShowScreenShare(true);
                     // Trigger auto-join
