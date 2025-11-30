@@ -245,6 +245,21 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       console.log('🎥 I am now the presenter');
       setIsViewing(false);
       setConnectionStatus('disconnected');
+      
+      // Clear remote video and ensure we can see our own stream
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = null;
+      }
+      
+      // If we have a local stream already, make sure it's displayed
+      if (localVideoRef.current && streamRef.current) {
+        localVideoRef.current.srcObject = streamRef.current;
+        setTimeout(() => {
+          if (localVideoRef.current) {
+            localVideoRef.current.play().catch(e => console.error('Play error:', e));
+          }
+        }, 100);
+      }
     } else {
       console.log('👁️ I am a viewer');
     }
@@ -254,17 +269,34 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
 
   function handlePresenterStopped({ userId }) {
     console.log('⏹️ Presenter stopped:', userId);
+    
+    // Clear presenter state
     setPresenter(null);
     setIsViewing(false);
     setConnectionStatus('disconnected');
+    setError(null);
     
+    // Clean up video elements
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
+    if (localVideoRef.current && userId !== authUser.id) {
+      // Only clear local video if we weren't the presenter
+      localVideoRef.current.srcObject = null;
+    }
     
     // Close all peer connections
-    peerConnectionsRef.current.forEach(pc => pc.close());
+    peerConnectionsRef.current.forEach(pc => {
+      try {
+        pc.close();
+      } catch (e) {
+        console.warn('Error closing peer connection:', e);
+      }
+    });
     peerConnectionsRef.current.clear();
+    pendingCandidatesRef.current.clear();
+    
+    console.log('✅ Cleanup complete, ready for next presenter');
   }
 
   function handleViewersUpdate({ viewers: viewersList }) {
