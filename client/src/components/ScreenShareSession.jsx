@@ -472,16 +472,26 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   }
 
   function stopSharing() {
+    console.log('⏹️ Stopping screen sharing...');
+    
+    // First clean up all resources
     cleanup();
 
+    // Notify server we're stopping
     socket.emit('screenshare:stop-presenting', {
       roomCode,
       userId: authUser.id,
     });
 
+    // Ensure all state is reset for the presenter
     setIsSharing(false);
     setPresenter(null);
     setIsCameraMode(false);
+    setViewers([]);
+    setError(null);
+    setConnectionStatus('disconnected');
+    
+    console.log('✅ Screen sharing stopped - ready to start again');
   }
 
   async function switchCamera() {
