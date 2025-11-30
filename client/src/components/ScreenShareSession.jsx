@@ -3,6 +3,92 @@ import socket from '../lib/socket';
 import { useApp } from '../context/AppContext';
 
 export default function ScreenShareSession({ roomCode, onClose, autoJoinPresenter, triggerAutoJoin }) {
+  // 🚫 CRITICAL: Block mobile devices IMMEDIATELY before ANY state initialization
+  const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|Windows Phone|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent);
+  
+  if (isMobileDevice) {
+    // IMMEDIATE BLOCK - No state, no effects, no logic runs on mobile
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(15, 23, 42, 0.98)',
+        zIndex: 99999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px'
+      }}>
+        <div style={{
+          background: '#1e293b',
+          borderRadius: '20px',
+          padding: '40px 32px',
+          maxWidth: '420px',
+          textAlign: 'center',
+          boxShadow: '0 25px 50px rgba(0,0,0,0.5)',
+          border: '3px solid #ef4444',
+          animation: 'fadeIn 0.3s ease-in'
+        }}>
+          <div style={{ fontSize: '80px', marginBottom: '24px' }}>📱🚫</div>
+          <h2 style={{
+            color: 'white',
+            fontSize: '28px',
+            fontWeight: 'bold',
+            marginBottom: '16px',
+            lineHeight: '1.3'
+          }}>
+            Mobile Devices<br/>Not Supported
+          </h2>
+          <p style={{
+            color: '#94a3b8',
+            fontSize: '17px',
+            marginBottom: '28px',
+            lineHeight: '1.6'
+          }}>
+            Screen sharing is only available on laptop and desktop computers.
+          </p>
+          <div style={{
+            background: '#1e40af',
+            border: '2px solid #3b82f6',
+            borderRadius: '12px',
+            padding: '20px',
+            marginBottom: '28px'
+          }}>
+            <p style={{
+              color: '#93c5fd',
+              fontSize: '15px',
+              fontWeight: '600',
+              margin: 0
+            }}>
+              💻 Please use your laptop or desktop browser
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              width: '100%',
+              padding: '16px 24px',
+              background: '#ef4444',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              fontSize: '18px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)'
+            }}
+          >
+            ✕ Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
+  // Desktop-only code from here
   const { authUser } = useApp();
   const [isSharing, setIsSharing] = useState(false);
   const [isViewing, setIsViewing] = useState(false);
@@ -35,35 +121,6 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   const pendingCandidatesRef = useRef(new Map()); // Queue for ICE candidates
   const canvasRef = useRef(null);
   const drawingContextRef = useRef(null);
-
-  // Detect if mobile - BLOCK ENTIRELY if mobile device
-  const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|Windows Phone|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent);
-  
-  // IMMEDIATELY block mobile devices - don't run any useEffects or logic
-  if (isMobileDevice) {
-    return (
-      <div className="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center p-6">
-        <div className="bg-slate-800 rounded-lg p-8 max-w-md text-center shadow-2xl border border-slate-700">
-          <div className="text-6xl mb-6">📱🚫</div>
-          <h2 className="text-2xl font-bold text-white mb-4">Mobile Devices Not Supported</h2>
-          <p className="text-gray-300 mb-6">
-            Screen sharing only works on laptop and desktop browsers.
-          </p>
-          <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-4 mb-6">
-            <p className="text-blue-300 text-sm">
-              💻 Please use your laptop or desktop computer to share or view screens.
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-full px-6 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-600 font-medium transition"
-          >
-            ✕ Close
-          </button>
-        </div>
-      </div>
-    );
-  }
   
   // WebRTC configuration - base config (we'll override per-connection for mobile viewers)
   const rtcConfig = {
@@ -159,7 +216,6 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
     socket.on('screenshare:ice-candidate', handleIceCandidate);
     socket.on('screenshare:ice-restart', handleIceRestartOffer);
     socket.on('screenshare:draw', handleRemoteDrawing);
-    socket.on('screenshare:request-view', handleViewRequest);
     socket.on('screenshare:connection-error', ({ error }) => {
       console.error('❌ Connection error from presenter:', error);
       setError('❌ ' + error);
@@ -181,7 +237,6 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       socket.off('screenshare:ice-candidate', handleIceCandidate);
       socket.off('screenshare:ice-restart', handleIceRestartOffer);
       socket.off('screenshare:draw', handleRemoteDrawing);
-      socket.off('screenshare:request-view', handleViewRequest);
       socket.off('screenshare:connection-error');
     };
   }, [roomCode, authUser]);
@@ -217,12 +272,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   }
 
   function handlePresenterStarted({ userId, userName }) {
-    console.log('\n============ PRESENTER STARTED EVENT ============');
-    console.log('📺 Presenter:', userName);
-    console.log('📺 Presenter ID:', userId);
-    console.log('📺 My ID:', authUser.id);
-    console.log('📺 Am I the presenter?', userId === authUser.id);
-    console.log('================================================\n');
+    console.log('📺 Presenter started event received:', userName, 'userId:', userId, 'my userId:', authUser.id);
     
     // If there's a new presenter (different from current), clean up old connections
     if (presenter && presenter.userId !== userId) {
@@ -252,34 +302,8 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       console.log('🎥 I am now the presenter');
       setIsViewing(false);
       setConnectionStatus('disconnected');
-      
-      // Clear remote video and ensure we can see our own stream
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = null;
-      }
-      
-      // If we have a local stream already, make sure it's displayed and isSharing is true
-      if (localVideoRef.current && streamRef.current) {
-        console.log('✅ Stream exists, setting up local video');
-        localVideoRef.current.srcObject = streamRef.current;
-        setIsSharing(true); // Ensure isSharing is true
-        setTimeout(() => {
-          if (localVideoRef.current) {
-            localVideoRef.current.play().catch(e => console.error('Play error:', e));
-          }
-        }, 100);
-      } else {
-        console.log('⚠️ No stream found in handlePresenterStarted for myself');
-      }
     } else {
-      console.log('👁️ I am a viewer, auto-joining...');
-      // If we were previously viewing someone else, auto-join the new presenter
-      if (isViewing) {
-        console.log('🔄 Was viewing previous presenter, switching to new one');
-        setTimeout(() => {
-          joinViewing();
-        }, 500); // Small delay to ensure cleanup is complete
-      }
+      console.log('👁️ I am a viewer');
     }
     
     setError(null); // Clear any previous errors
@@ -287,34 +311,17 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
 
   function handlePresenterStopped({ userId }) {
     console.log('⏹️ Presenter stopped:', userId);
-    
-    // Clear presenter state
     setPresenter(null);
     setIsViewing(false);
     setConnectionStatus('disconnected');
-    setError(null);
     
-    // Clean up video elements
     if (remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = null;
     }
-    if (localVideoRef.current && userId !== authUser.id) {
-      // Only clear local video if we weren't the presenter
-      localVideoRef.current.srcObject = null;
-    }
     
     // Close all peer connections
-    peerConnectionsRef.current.forEach(pc => {
-      try {
-        pc.close();
-      } catch (e) {
-        console.warn('Error closing peer connection:', e);
-      }
-    });
+    peerConnectionsRef.current.forEach(pc => pc.close());
     peerConnectionsRef.current.clear();
-    pendingCandidatesRef.current.clear();
-    
-    console.log('✅ Cleanup complete, ready for next presenter');
   }
 
   function handleViewersUpdate({ viewers: viewersList }) {
@@ -325,16 +332,14 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
     try {
       setError(null);
       
-      // IMPORTANT: Clean up any previous state completely
-      if (isViewing || presenter) {
-        console.log('🛑 Cleaning up previous state before starting to share');
+      // IMPORTANT: Stop viewing first if we were a viewer
+      if (isViewing) {
+        console.log('🛑 Stopping viewer mode before starting to share');
         setIsViewing(false);
         setConnectionStatus('disconnected');
-        
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = null;
         }
-        
         // Close all viewer connections
         peerConnectionsRef.current.forEach(pc => {
           try {
@@ -343,9 +348,6 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         });
         peerConnectionsRef.current.clear();
         pendingCandidatesRef.current.clear();
-        
-        // Wait a moment for cleanup to complete
-        await new Promise(resolve => setTimeout(resolve, 100));
       }
       
       let stream = null;
@@ -394,15 +396,6 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       }
 
       // Notify server that we're presenting
-      console.log('\n============ EMITTING START-PRESENTING ============');
-      console.log('📤 Room:', roomCode);
-      console.log('📤 My ID:', authUser.id);
-      console.log('📤 My Name:', authUser.name);
-      console.log('📤 Stream ID:', stream.id);
-      console.log('📤 Stream Active:', stream.active);
-      console.log('📤 Tracks:', stream.getTracks().map(t => t.kind));
-      console.log('===================================================\n');
-      
       socket.emit('screenshare:start-presenting', {
         roomCode,
         userId: authUser.id,
@@ -644,16 +637,11 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
       addDebugLog('🔄 Status: connecting');
       
       // Request to view - presenter will send us an offer
-      console.log('\n============ VIEWER REQUESTING VIEW ============');
-      console.log('👁️ Room:', roomCode);
-      console.log('👁️ My ID:', authUser.id);
-      console.log('👁️ My Name:', authUser.name);
-      console.log('👁️ Presenter ID:', presenter.userId);
-      console.log('👁️ Presenter Name:', presenter.userName);
-      console.log('👁️ Socket Connected:', socket.connected);
-      console.log('================================================\n');
-      
       addDebugLog('📤 Emitting screenshare:request-view');
+      console.log('� [joinViewing] Detected device:', {
+        isMobileDevice,
+        userAgent: navigator.userAgent,
+      });
       socket.emit('screenshare:request-view', {
         roomCode,
         userId: authUser.id,
@@ -747,7 +735,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
             addDebugLog('📹 Track state: ' + track.readyState);
             track.onended = () => {
               addDebugLog('⚠️ Track ENDED');
-              setError('📺 Stream ended by presenter');
+              setError('📺 Use your laptop/desktop to view or share screen');
             };
             track.onmute = () => {
               addDebugLog('⚠️ Track MUTED');
@@ -776,7 +764,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
               addDebugLog('⚠️ Autoplay blocked: ' + playErr.name);
               console.warn('Video play failed:', playErr);
               // Show tap-to-play message
-              setError('👆 Click the video to start playback');
+              setError('try on laptop/desktop to view screen');
             }
           };
           
@@ -836,7 +824,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
           hasRetried = true;
           addDebugLog('❌ Connection FAILED - retrying with TURN relay...');
           setConnectionStatus('reconnecting');
-          setError('⏳ Connection failed, retrying with relay server...');
+          setError('⏳ Try in your laptop/sesktop for screen sharing and viewing...');
           
           // Wait a moment before retry
           await new Promise(resolve => setTimeout(resolve, 500));
@@ -1046,35 +1034,18 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
   }
 
   // Presenter: Handle view requests and create offers for viewers
-  async function handleViewRequest({ userId, userName }) {
-    console.log('\n============ VIEW REQUEST RECEIVED ============');
-    console.log('🔔 From:', userName);
-    console.log('🔔 From ID:', userId);
-    console.log('🔔 My ID:', authUser.id);
-    console.log('🔔 isSharing:', isSharing);
-    console.log('🔔 hasStream:', !!streamRef.current);
-    console.log('🔔 Stream Active:', streamRef.current?.active);
-    console.log('🔔 Stream ID:', streamRef.current?.id);
-    console.log('🔔 Stream Tracks:', streamRef.current?.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState })));
-    console.log('===============================================\n');
-    
-    if (!streamRef.current) {
-      console.error('❌ No stream available to share with', userName);
-      return;
-    }
-    if (!streamRef.current.active) {
-      console.error('❌ Stream is not active for', userName);
-      return;
-    }
-    if (userId === authUser.id) return; // Don't create connection to ourselves
+  useEffect(() => {
+    async function handleViewRequest({ userId, userName }) {
+      if (!isSharing || !streamRef.current) return;
+      if (userId === authUser.id) return; // Don't create connection to ourselves
 
-    console.log('👁️ Viewer requesting to join:', userName);
+      console.log('👁️ Viewer requesting to join:', userName);
 
-    try {
-      console.log('🔧 Creating peer connection for', userName, ':', {
-        iceTransportPolicy: rtcConfig.iceTransportPolicy,
-        iceServers: rtcConfig.iceServers.length + ' servers',
-      });
+      try {
+        console.log('🔧 Creating peer connection for', userName, ':', {
+          iceTransportPolicy: rtcConfig.iceTransportPolicy,
+          iceServers: rtcConfig.iceServers.length + ' servers',
+        });
         
         const peerConnection = new RTCPeerConnection(rtcConfig);
         peerConnectionsRef.current.set(userId, peerConnection);
@@ -1216,16 +1187,20 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         });
         console.log('✅ Offer sent to viewer:', userName);
 
-    } catch (err) {
-      console.error('❌ Error creating offer for viewer:', userName, err);
-      // Notify the viewer that connection failed
-      socket.emit('screenshare:connection-error', {
-        roomCode,
-        toUserId: userId,
-        error: 'Presenter failed to create connection. Please try again.'
-      });
+      } catch (err) {
+        console.error('❌ Error creating offer for viewer:', userName, err);
+        // Notify the viewer that connection failed
+        socket.emit('screenshare:connection-error', {
+          roomCode,
+          toUserId: userId,
+          error: 'Presenter failed to create connection. Please try again.'
+        });
+      }
     }
-  }
+
+    socket.on('screenshare:request-view', handleViewRequest);
+    return () => socket.off('screenshare:request-view', handleViewRequest);
+  }, [isSharing, authUser, roomCode]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col">
@@ -1327,16 +1302,11 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         {error && (
           <div className="text-center max-w-lg px-4">
             <div className="text-red-400 text-6xl mb-4">⚠️</div>
-            <h3 className="text-red-400 text-xl mb-3">Unable to Start Sharing</h3>
+            <h3 className="text-red-400 text-xl mb-3">Mobile device is not supported </h3>
             <div className="text-gray-300 text-left bg-slate-800 rounded-lg p-4 mb-4 whitespace-pre-line">
               {error}
             </div>
-            <button
-              onClick={() => setError(null)}
-              className="px-6 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 font-medium"
-            >
-              Try Again
-            </button>
+           
           </div>
         )}
 
@@ -1454,60 +1424,116 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
         )}
 
         {isViewing && !isSharing && presenter?.userId !== authUser.id && !error && (
-          <div className="w-full max-w-6xl">
-            <h3 className="text-white text-xl mb-4">Viewing: {presenter?.userName}'s Screen</h3>
-            <div className="bg-slate-800 p-2 rounded mb-2 text-sm text-gray-300 flex items-center justify-between">
-              <div>
-                📱 Connection Status: <span className={connectionStatus === 'connected' ? 'text-green-400 font-bold' : connectionStatus === 'connecting' ? 'text-yellow-400 animate-pulse' : connectionStatus === 'reconnecting' ? 'text-orange-400' : 'text-red-400'}>{connectionStatus}</span>
-                {connectionStatus === 'connecting' && <span className="ml-2 text-xs text-gray-400">• Establishing connection...</span>}
-                {connectionStatus === 'reconnecting' && <span className="ml-2 text-xs text-gray-400">• Reconnecting...</span>}
+          isMobileDevice ? (
+            <div className="text-center max-w-lg px-4">
+              <div style={{ fontSize: '80px', marginBottom: '24px' }}>📱🚫</div>
+              <h2 style={{
+                color: 'white',
+                fontSize: '28px',
+                fontWeight: 'bold',
+                marginBottom: '16px',
+                lineHeight: '1.3'
+              }}>
+                Mobile Not Supported
+              </h2>
+              <p style={{
+                color: '#94a3b8',
+                fontSize: '17px',
+                marginBottom: '28px',
+                lineHeight: '1.6'
+              }}>
+                Screen viewing is only available on laptop and desktop computers.
+              </p>
+              <div style={{
+                background: '#1e40af',
+                border: '2px solid #3b82f6',
+                borderRadius: '12px',
+                padding: '20px',
+                marginBottom: '28px'
+              }}>
+                <p style={{
+                  color: '#93c5fd',
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  margin: 0
+                }}>
+                  💻 Please use your laptop or desktop browser
+                </p>
               </div>
-              {connectionStatus === 'connected' && (
-                <button
+              <button
+                onClick={onClose}
+                style={{
+                  width: '100%',
+                  padding: '16px 24px',
+                  background: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)'
+                }}
+              >
+                ✕ Close
+              </button>
+            </div>
+          ) : (
+            <div className="w-full max-w-6xl">
+              <h3 className="text-white text-xl mb-4">Viewing: {presenter?.userName}'s Screen</h3>
+              <div className="bg-slate-800 p-2 rounded mb-2 text-sm text-gray-300 flex items-center justify-between">
+                <div>
+                  📱 Connection Status: <span className={connectionStatus === 'connected' ? 'text-green-400 font-bold' : connectionStatus === 'connecting' ? 'text-yellow-400 animate-pulse' : connectionStatus === 'reconnecting' ? 'text-orange-400' : 'text-red-400'}>{connectionStatus}</span>
+                  {connectionStatus === 'connecting' && <span className="ml-2 text-xs text-gray-400">• Establishing connection...</span>}
+                  {connectionStatus === 'reconnecting' && <span className="ml-2 text-xs text-gray-400">• Reconnecting...</span>}
+                </div>
+                {connectionStatus === 'connected' && (
+                  <button
+                    onClick={() => {
+                      if (remoteVideoRef.current) {
+                        remoteVideoRef.current.play().catch(e => console.error('Play error:', e));
+                      }
+                    }}
+                    className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs"
+                  >
+                    ▶️ Play
+                  </button>
+                )}
+              </div>
+              <div className="relative">
+                <video
+                  ref={remoteVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  webkit-playsinline="true"
+                  x5-playsinline="true"
+                  x5-video-player-type="h5"
+                  x5-video-player-fullscreen="true"
+                  className="w-full rounded-lg shadow-2xl bg-black min-h-[200px] md:min-h-[400px]"
+                  style={{ maxHeight: '70vh', objectFit: 'contain' }}
+                  onLoadedMetadata={() => console.log('📺 Video metadata loaded')}
+                  onPlay={() => console.log('▶️ Video playing')}
+                  onError={(e) => console.error('❌ Video error:', e)}
                   onClick={() => {
-                    if (remoteVideoRef.current) {
+                    // Allow tap to play on mobile
+                    if (remoteVideoRef.current && remoteVideoRef.current.paused) {
                       remoteVideoRef.current.play().catch(e => console.error('Play error:', e));
                     }
                   }}
-                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs"
-                >
-                  ▶️ Play
-                </button>
-              )}
+                />
+                <canvas
+                  ref={canvasRef}
+                  width={1920}
+                  height={1080}
+                  className="absolute top-0 left-0 w-full h-full rounded-lg pointer-events-none"
+                />
+              </div>
             </div>
-            <div className="relative">
-              <video
-                ref={remoteVideoRef}
-                autoPlay
-                playsInline
-                muted
-                webkit-playsinline="true"
-                x5-playsinline="true"
-                x5-video-player-type="h5"
-                x5-video-player-fullscreen="true"
-                className="w-full rounded-lg shadow-2xl bg-black min-h-[200px] md:min-h-[400px]"
-                style={{ maxHeight: '70vh', objectFit: 'contain' }}
-                onLoadedMetadata={() => console.log('📺 Video metadata loaded')}
-                onPlay={() => console.log('▶️ Video playing')}
-                onError={(e) => console.error('❌ Video error:', e)}
-                onClick={() => {
-                  // Allow tap to play on mobile
-                  if (remoteVideoRef.current && remoteVideoRef.current.paused) {
-                    remoteVideoRef.current.play().catch(e => console.error('Play error:', e));
-                  }
-                }}
-              />
-              <canvas
-                ref={canvasRef}
-                width={1920}
-                height={1080}
-                className="absolute top-0 left-0 w-full h-full rounded-lg pointer-events-none"
-              />
-            </div>
-          </div>
+          )
         )}
 
-        {presenter && !isSharing && !isViewing && !error && (
+        {presenter && !isSharing && !isViewing && !error && !isMobileDevice && (
           <div className="text-white text-center">
             <div className="text-6xl mb-4">👤</div>
             <h3 className="text-2xl mb-2">{presenter.userName} is sharing</h3>
@@ -1521,7 +1547,7 @@ export default function ScreenShareSession({ roomCode, onClose, autoJoinPresente
           </div>
         )}
 
-        {connectionStatus === 'connecting' && isViewing && !error && (
+        {connectionStatus === 'connecting' && isViewing && !error && !isMobileDevice && (
           <div className="text-white text-center max-w-md mx-auto px-4">
             <div className="text-6xl mb-4 animate-pulse">🔄</div>
             <h3 className="text-2xl mb-2">Connecting to {presenter?.userName}...</h3>
