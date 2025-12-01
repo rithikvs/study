@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import * as fabric from 'fabric';
+import { Canvas, PencilBrush, Path, util } from 'fabric';
 import socket from '../lib/socket';
 import api from '../lib/api';
 
@@ -18,7 +18,7 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
     if (!canvasRef.current) return;
 
     // Initialize Fabric canvas
-    const canvas = new fabric.Canvas(canvasRef.current, {
+    const canvas = new Canvas(canvasRef.current, {
       isDrawingMode: true,
       width: window.innerWidth > 768 ? 800 : window.innerWidth - 40,
       height: window.innerHeight > 768 ? 600 : window.innerHeight - 200,
@@ -27,11 +27,11 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
 
     fabricCanvasRef.current = canvas;
 
-    // Configure brush
-    if (canvas.freeDrawingBrush) {
-      canvas.freeDrawingBrush.color = color;
-      canvas.freeDrawingBrush.width = brushSize;
-    }
+    // Set up drawing brush
+    const brush = new PencilBrush(canvas);
+    brush.color = color;
+    brush.width = brushSize;
+    canvas.freeDrawingBrush = brush;
 
     // Load existing whiteboard data from database
     loadWhiteboardData(canvas);
@@ -76,7 +76,7 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
       isRemoteDrawing.current = true;
       
       // Create path from JSON data
-      fabric.Path.fromObject(pathData).then((path) => {
+      Path.fromObject(pathData).then((path) => {
         canvas.add(path);
         canvas.renderAll();
         isRemoteDrawing.current = false;
@@ -118,7 +118,7 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
     socket.on('whiteboard:state', ({ canvasJSON }) => {
       if (canvasJSON) {
         isRemoteDrawing.current = true;
-        fabric.util.enlivenObjects(canvasJSON.objects || []).then((objects) => {
+        util.enlivenObjects(canvasJSON.objects || []).then((objects) => {
           canvas.clear();
           canvas.backgroundColor = '#ffffff';
           objects.forEach((obj) => canvas.add(obj));
@@ -178,7 +178,7 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
       
       if (data.canvasData && data.canvasData.objects) {
         isRemoteDrawing.current = true;
-        const objects = await fabric.util.enlivenObjects(data.canvasData.objects);
+        const objects = await util.enlivenObjects(data.canvasData.objects);
         objects.forEach((obj) => canvas.add(obj));
         canvas.renderAll();
         isRemoteDrawing.current = false;
@@ -215,16 +215,18 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
     if (!fabricCanvasRef.current) return;
     const canvas = fabricCanvasRef.current;
     
-    if (canvas.freeDrawingBrush) {
-      if (tool === 'pen') {
-        canvas.freeDrawingBrush.color = color;
-        canvas.freeDrawingBrush.width = brushSize;
-        canvas.isDrawingMode = true;
-      } else if (tool === 'eraser') {
-        canvas.freeDrawingBrush.color = '#ffffff';
-        canvas.freeDrawingBrush.width = brushSize * 3;
-        canvas.isDrawingMode = true;
-      }
+    if (tool === 'pen') {
+      const brush = new PencilBrush(canvas);
+      brush.color = color;
+      brush.width = brushSize;
+      canvas.freeDrawingBrush = brush;
+      canvas.isDrawingMode = true;
+    } else if (tool === 'eraser') {
+      const brush = new PencilBrush(canvas);
+      brush.color = '#ffffff';
+      brush.width = brushSize * 3;
+      canvas.freeDrawingBrush = brush;
+      canvas.isDrawingMode = true;
     }
   }, [color, brushSize, tool]);
 
