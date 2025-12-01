@@ -23,35 +23,82 @@ export default function Navbar() {
   }
 
   return (
-    <header className="sticky top-0 z-50 bg-white/70 backdrop-blur border-b border-slate-200">
-      <nav className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
-        <Link to="/" className="text-xl font-bold text-primary">StudyHub</Link>
-        <div className="flex items-center gap-4">
+    <header className="sticky top-0 z-50 glass border-b border-white/20">
+      <nav className="mx-auto max-w-6xl px-4 py-4 flex items-center justify-between">
+        <Link to="/" className="flex items-center gap-2 group">
+          <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+          </div>
+          <span className="text-xl font-bold gradient-text">StudyHub</span>
+        </Link>
+        
+        <div className="flex items-center gap-2">
           <Link
             to="/"
-            className={`px-3 py-2 rounded hover:bg-slate-100 ${pathname === '/' ? 'text-primary' : 'text-slate-600'}`}
-          >Home</Link>
+            className={`px-4 py-2 rounded-xl font-medium transition ${
+              pathname === '/' 
+                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg' 
+                : 'text-slate-700 hover:bg-white/50'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              Home
+            </span>
+          </Link>
+          
           <Link
             to="/dashboard"
-            className={`px-3 py-2 rounded hover:bg-slate-100 ${pathname.startsWith('/dashboard') ? 'text-primary' : 'text-slate-600'}`}
-          >Dashboard</Link>
+            className={`px-4 py-2 rounded-xl font-medium transition ${
+              pathname.startsWith('/dashboard') 
+                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg' 
+                : 'text-slate-700 hover:bg-white/50'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 16a1 1 0 011-1h4a1 1 0 011 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-3zM14 13a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1h-4a1 1 0 01-1-1v-7z" />
+              </svg>
+              Dashboard
+            </span>
+          </Link>
+          
           {authUser ? (
             <>
-              <span className="text-sm text-slate-600">
-                Logged in as <strong>{authUser.name}</strong>
-              </span>
+              <div className="glass px-4 py-2 rounded-xl ml-2">
+                <span className="text-sm text-slate-600">Welcome, </span>
+                <strong className="text-purple-600">{authUser.name}</strong>
+              </div>
               <button
                 onClick={handleSignOut}
-                className="px-3 py-2 rounded bg-red-50 text-red-600 hover:bg-red-100"
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-red-500 to-pink-500 text-white font-medium hover:shadow-glow transition flex items-center gap-2"
               >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
                 Sign Out
               </button>
             </>
           ) : (
             <Link
               to="/auth"
-              className={`px-3 py-2 rounded hover:bg-slate-100 ${pathname.startsWith('/auth') ? 'text-primary' : 'text-slate-600'}`}
-            >Sign In</Link>
+              className={`px-4 py-2 rounded-xl font-medium transition ml-2 ${
+                pathname.startsWith('/auth') 
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg' 
+                  : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:shadow-glow'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                </svg>
+                Sign In
+              </span>
+            </Link>
           )}
         </div>
       </nav>
