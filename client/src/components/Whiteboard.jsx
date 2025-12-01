@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { fabric } from 'fabric';
+import { Canvas, Path } from 'fabric';
 import socket from '../lib/socket';
 
 export default function Whiteboard({ roomCode, userName, onClose }) {
@@ -16,7 +16,7 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
     if (!canvasRef.current) return;
 
     // Initialize Fabric canvas
-    const canvas = new fabric.Canvas(canvasRef.current, {
+    const canvas = new Canvas(canvasRef.current, {
       isDrawingMode: true,
       width: window.innerWidth > 768 ? 800 : window.innerWidth - 40,
       height: window.innerHeight > 768 ? 600 : window.innerHeight - 200,
@@ -62,7 +62,7 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
       
       isRemoteDrawing.current = true;
       
-      const path = new fabric.Path(pathData.path, {
+      const path = new Path(pathData.path, {
         stroke: pathData.stroke,
         strokeWidth: pathData.strokeWidth,
         fill: pathData.fill || '',
