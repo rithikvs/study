@@ -218,16 +218,16 @@ export default function Room() {
   const isRoomCreator = group && authUser && group.createdBy === authUser.id;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-slate-100 dark:from-slate-900 dark:to-slate-800">
+    <div className="min-h-screen bg-gradient-to-b from-white to-slate-100">
       <Navbar />
       
       <main className="mx-auto max-w-6xl px-4 py-8">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Room: {roomCode}</h1>
+            <h1 className="text-2xl font-bold">Room: {roomCode}</h1>
             {group && (
               <div className="mt-2 flex items-center gap-2">
-                <span className="text-sm text-slate-600 dark:text-slate-300">Members:</span>
+                <span className="text-sm text-slate-600">Members:</span>
                 <div className="flex flex-wrap gap-2">
                   {group.members?.map((member) => (
                     <span key={member._id} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
@@ -265,16 +265,16 @@ export default function Room() {
         </div>
 
         {/* Tabs */}
-        <div className="mt-6 flex gap-4 border-b border-slate-200 dark:border-slate-700">
+        <div className="mt-6 flex gap-4 border-b border-slate-200">
           <button
             onClick={() => setActiveTab('notes')}
-            className={`pb-2 px-4 font-medium ${activeTab === 'notes' ? 'border-b-2 border-primary text-primary' : 'text-slate-600 dark:text-slate-400'}`}
+            className={`pb-2 px-4 font-medium ${activeTab === 'notes' ? 'border-b-2 border-primary text-primary' : 'text-slate-600'}`}
           >
             Notes ({notes.length})
           </button>
           <button
             onClick={() => setActiveTab('files')}
-            className={`pb-2 px-4 font-medium ${activeTab === 'files' ? 'border-b-2 border-primary text-primary' : 'text-slate-600 dark:text-slate-400'}`}
+            className={`pb-2 px-4 font-medium ${activeTab === 'files' ? 'border-b-2 border-primary text-primary' : 'text-slate-600'}`}
           >
             Files ({files.length})
           </button>
@@ -283,20 +283,20 @@ export default function Room() {
         <div className="mt-6 grid grid-cols-1 md:grid-cols-[280px_1fr] gap-6">
           {activeTab === 'notes' ? (
             <>
-              <aside className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 overflow-auto h-[60vh]">
-                <h2 className="text-sm font-semibold text-slate-600 dark:text-slate-300">Notes</h2>
+              <aside className="bg-white border border-slate-200 rounded-xl p-4 overflow-auto h-[60vh]">
+                <h2 className="text-sm font-semibold text-slate-600">Notes</h2>
                 <ul className="mt-3 space-y-2">
                   {notes.map((n) => (
                 <li key={n._id}>
                   <button
                     onClick={() => setActiveId(n._id)}
-                    className={`w-full text-left px-3 py-2 rounded-lg border ${activeId === n._id ? 'border-primary bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white' : 'border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-900 dark:text-slate-200'}`}
+                    className={`w-full text-left px-3 py-2 rounded-lg border ${activeId === n._id ? 'border-primary bg-slate-50' : 'border-slate-200 hover:bg-slate-50'}`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <span className="font-medium">{n.title || 'Untitled'}</span>
                         {n.createdBy && (
-                          <span className="text-xs text-slate-400 dark:text-slate-500 ml-2">by {n.createdBy.name}</span>
+                          <span className="text-xs text-slate-400 ml-2">by {n.createdBy.name}</span>
                         )}
                       </div>
                       {authUser && n.createdBy && n.createdBy._id === authUser.id && (
@@ -308,16 +308,16 @@ export default function Room() {
                         </button>
                       )}
                     </div>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">Updated {new Date(n.updatedAt).toLocaleString()}</span>
+                    <span className="text-xs text-slate-500">Updated {new Date(n.updatedAt).toLocaleString()}</span>
                   </button>
                 </li>
               ))}
                 </ul>
               </aside>
 
-              <section className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 h-[60vh] flex flex-col">
+              <section className="bg-white border border-slate-200 rounded-xl p-4 h-[60vh] flex flex-col">
                 {!activeNote ? (
-                  <div className="h-full grid place-items-center text-slate-500 dark:text-slate-400">Select or create a note</div>
+                  <div className="h-full grid place-items-center text-slate-500">Select or create a note</div>
                 ) : (
                   <div className="flex-1 flex flex-col">
                     <input
@@ -326,7 +326,7 @@ export default function Room() {
                         const v = e.target.value;
                         setNotes((prev) => prev.map((n) => (n._id === activeNote._id ? { ...n, title: v } : n)));
                       }}
-                      className="px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg"
+                      className="px-3 py-2 border rounded-lg"
                     />
                     <textarea
                       value={activeNote.content}
@@ -335,7 +335,7 @@ export default function Room() {
                         setNotes((prev) => prev.map((n) => (n._id === activeNote._id ? { ...n, content: v } : n)));
                         socket.emit('note:update', { noteId: activeNote._id, content: v, roomCode });
                       }}
-                      className="mt-3 flex-1 resize-none px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg font-mono"
+                      className="mt-3 flex-1 resize-none px-3 py-2 border rounded-lg font-mono"
                     />
                     <div className="mt-3 flex items-center justify-end gap-3">
                       <button
@@ -350,10 +350,10 @@ export default function Room() {
               </section>
             </>
           ) : (
-            <div className="col-span-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6">
+            <div className="col-span-full bg-white border border-slate-200 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Shared Files</h2>
-                <div className="text-sm text-slate-500 dark:text-slate-400 bg-blue-50 dark:bg-blue-900/30 px-3 py-1 rounded-full">
+                <h2 className="text-lg font-semibold">Shared Files</h2>
+                <div className="text-sm text-slate-500 bg-blue-50 px-3 py-1 rounded-full">
                   <svg className="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
                   </svg>
@@ -361,18 +361,18 @@ export default function Room() {
                 </div>
               </div>
               {files.length === 0 ? (
-                <div className="text-center py-12 text-slate-500 dark:text-slate-400">
-                  <svg className="w-16 h-16 mx-auto mb-3 text-slate-300 dark:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="text-center py-12 text-slate-500">
+                  <svg className="w-16 h-16 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                   </svg>
                   <p>No files uploaded yet</p>
                   <p className="text-sm mt-1">Upload PDF, PPT, or images to share with everyone (max 10MB)</p>
-                  <p className="text-xs mt-2 text-slate-400 dark:text-slate-500">Files are permanently stored in the cloud ☁️</p>
+                  <p className="text-xs mt-2 text-slate-400">Files are permanently stored in the cloud ☁️</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {files.map((file) => (
-                    <div key={file._id} className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 rounded-lg p-4 hover:shadow-md transition-shadow relative">
+                    <div key={file._id} className="border border-slate-200 rounded-lg p-4 hover:shadow-md transition relative">
                       <div className="flex items-start gap-3">
                         <div className="flex-shrink-0">
                           {file.mimeType.startsWith('image/') ? (
@@ -390,9 +390,9 @@ export default function Room() {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate text-slate-900 dark:text-white">{file.originalName}</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{formatFileSize(file.size)}</p>
-                          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                          <p className="font-medium text-sm truncate">{file.originalName}</p>
+                          <p className="text-xs text-slate-500 mt-1">{formatFileSize(file.size)}</p>
+                          <p className="text-xs text-slate-400 mt-1">
                             Uploaded by {file.uploadedBy?.name}
                           </p>
                           <p className="text-xs text-slate-400">
@@ -401,20 +401,20 @@ export default function Room() {
                           <div className="flex flex-wrap gap-2 mt-3">
                             <button
                               onClick={() => setViewingFile(file)}
-                              className="text-xs px-3 py-1 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded hover:bg-green-100 dark:hover:bg-green-900/50"
+                              className="text-xs px-3 py-1 bg-green-50 text-green-600 rounded hover:bg-green-100"
                             >
                               👁️ Open
                             </button>
                             <button
                               onClick={() => downloadFile(file._id, file.originalName)}
-                              className="text-xs px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50"
+                              className="text-xs px-3 py-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100"
                             >
                               ⬇️ Download
                             </button>
                             {authUser && file.uploadedBy && file.uploadedBy._id === authUser.id && (
                               <button
                                 onClick={() => deleteFile(file._id)}
-                                className="text-xs px-3 py-1 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded hover:bg-red-100 dark:hover:bg-red-900/50"
+                                className="text-xs px-3 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100"
                               >
                                 🗑️ Delete
                               </button>
@@ -434,15 +434,15 @@ export default function Room() {
       {/* Create Note Modal */}
       {showNoteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowNoteModal(false)}>
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-8 w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-2xl font-bold mb-4 text-slate-800 dark:text-white">Create New Note</h2>
+          <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-2xl font-bold mb-4 text-slate-800">Create New Note</h2>
             <input
               type="text"
               value={newNoteName}
               onChange={(e) => setNewNoteName(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && createNote()}
               placeholder="Enter note name..."
-              className="w-full px-4 py-3 border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-lg"
+              className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-lg"
               autoFocus
             />
             <div className="flex gap-3 mt-6">
@@ -454,7 +454,7 @@ export default function Room() {
               </button>
               <button
                 onClick={() => setShowNoteModal(false)}
-                className="flex-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-6 py-3 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 font-medium text-lg"
+                className="flex-1 bg-slate-200 text-slate-700 px-6 py-3 rounded-lg hover:bg-slate-300 font-medium text-lg transition"
               >
                 Cancel
               </button>

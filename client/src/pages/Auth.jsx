@@ -44,17 +44,17 @@ export default function Auth() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-slate-100 dark:from-slate-900 dark:to-slate-800">
+    <div className="min-h-screen bg-gradient-to-b from-white to-slate-100">
       <Navbar />
       <main className="mx-auto max-w-md px-4 py-12">
-        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-glow border border-slate-200 dark:border-slate-700">
+        <div className="bg-white rounded-2xl p-6 shadow-glow border border-slate-200">
           <div className="flex gap-2 mb-4">
             <button
-              className={`flex-1 px-4 py-2 rounded-lg border ${mode === 'login' ? 'border-primary text-primary' : 'border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300'}`}
+              className={`flex-1 px-4 py-2 rounded-lg border ${mode === 'login' ? 'border-primary text-primary' : 'border-slate-200'}`}
               onClick={() => setMode('login')}
             >Login</button>
             <button
-              className={`flex-1 px-4 py-2 rounded-lg border ${mode === 'register' ? 'border-primary text-primary' : 'border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300'}`}
+              className={`flex-1 px-4 py-2 rounded-lg border ${mode === 'register' ? 'border-primary text-primary' : 'border-slate-200'}`}
               onClick={() => setMode('register')}
             >Register</button>
           </div>
@@ -65,7 +65,7 @@ export default function Auth() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Full name"
-                className="w-full px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-primary"
                 required
               />
             )}
@@ -74,7 +74,7 @@ export default function Auth() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Email"
-              className="w-full px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
+              className="w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-primary"
               required
             />
             <input
@@ -82,7 +82,7 @@ export default function Auth() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Password"
-              className="w-full px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
+              className="w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-primary"
               required
             />
             <button
