@@ -11,6 +11,8 @@ export default function ScreenShare({ roomCode, onClose, userName, authUser }) {
   const [viewers, setViewers] = useState([]);
   const [isViewing, setIsViewing] = useState(false);
   const [presenterName, setPresenterName] = useState('');
+  const [presenterId, setPresenterId] = useState(null);
+  const [showJoinNotification, setShowJoinNotification] = useState(false);
   const [connectionState, setConnectionState] = useState('new');
   
   const socketRef = useRef(null);
@@ -73,13 +75,17 @@ export default function ScreenShare({ roomCode, onClose, userName, authUser }) {
     socket.on('screenshare:presenter-started', ({ userName: name, userId: presenterId }) => {
       if (userIdRef.current !== presenterId) {
         setPresenterName(name);
-        setIsViewing(true);
-        // Auto-request to view
-        socket.emit('screenshare:request-view', {
-          roomCode,
-          userId: userIdRef.current,
-          userName,
-        });
+        setPresenterId(presenterId);
+        setShowJoinNotification(true);
+      }
+    });
+
+    // Check if there's already an ongoing presentation
+    socket.on('screenshare:existing-presenter', ({ userName: name, userId: presenterId }) => {
+      if (userIdRef.current !== presenterId) {
+        setPresenterName(name);
+        setPresenterId(presenterId);
+        setShowJoinNotification(true);
       }
     });
 
@@ -87,6 +93,8 @@ export default function ScreenShare({ roomCode, onClose, userName, authUser }) {
     socket.on('screenshare:presenter-stopped', () => {
       setIsViewing(false);
       setPresenterName('');
+      setPresenterId(null);
+      setShowJoinNotification(false);
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = null;
       }
@@ -325,6 +333,19 @@ export default function ScreenShare({ roomCode, onClose, userName, authUser }) {
     }
   };
 
+  // Handle joining to view screen share
+  const handleJoinScreenShare = () => {
+    setIsViewing(true);
+    setShowJoinNotification(false);
+    
+    // Request to view the presenter's screen
+    socketRef.current.emit('screenshare:request-view', {
+      roomCode,
+      userId: userIdRef.current,
+      userName,
+    });
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col">
@@ -355,8 +376,37 @@ export default function ScreenShare({ roomCode, onClose, userName, authUser }) {
         {/* Main Content */}
         <div className="flex-1 overflow-auto p-4">
           
+          {/* Join Notification Banner */}
+          {showJoinNotification && !isSharing && !isViewing && (
+            <div className="mb-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg p-4 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="animate-pulse">
+                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="font-bold text-lg">{presenterName} is sharing their screen</div>
+                    <div className="text-sm opacity-90">Click Join to view their screen</div>
+                  </div>
+                </div>
+                <button
+                  onClick={handleJoinScreenShare}
+                  className="px-6 py-3 bg-white text-green-700 rounded-lg hover:bg-gray-100 font-bold shadow-lg transition flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  Join & View
+                </button>
+              </div>
+            </div>
+          )}
+          
           {/* Not sharing and not viewing - Initial state */}
-          {!isSharing && !isViewing && (
+          {!isSharing && !isViewing && !showJoinNotification && (
             <div className="flex flex-col items-center justify-center h-full space-y-6">
               <div className="text-center">
                 <div className="text-6xl mb-4">🖥️</div>

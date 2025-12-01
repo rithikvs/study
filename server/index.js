@@ -165,7 +165,7 @@ io.on('connection', (socket) => {
         for (const socketId of roomSockets) {
           const s = io.sockets.sockets.get(socketId);
           if (s && s.data?.isPresenting) {
-            socket.emit('screenshare:presenter-started', {
+            socket.emit('screenshare:existing-presenter', {
               userId: s.data.userId,
               userName: s.data.userName
             });

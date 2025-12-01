@@ -24,6 +24,7 @@ export default function Room() {
   const [newNoteName, setNewNoteName] = useState('');
   const [viewingFile, setViewingFile] = useState(null);
   const [showScreenShare, setShowScreenShare] = useState(false);
+  const [screenSharePresenter, setScreenSharePresenter] = useState(null);
 
   useEffect(() => {
     async function init() {
@@ -50,6 +51,33 @@ export default function Room() {
   }, [roomCode, navigate]);
 
   useEffect(() => {
+    // Listen for screen share events
+    socket.emit('screenshare:join', {
+      roomCode,
+      userId: authUser?.id || socket.id,
+      userName: authUser?.name || 'Guest',
+    });
+
+    function onPresenterStarted({ userId, userName }) {
+      if (userId !== authUser?.id) {
+        setScreenSharePresenter({ userId, userName });
+      }
+    }
+
+    function onPresenterStopped() {
+      setScreenSharePresenter(null);
+    }
+
+    function onExistingPresenter({ userId, userName }) {
+      if (userId !== authUser?.id) {
+        setScreenSharePresenter({ userId, userName });
+      }
+    }
+
+    socket.on('screenshare:presenter-started', onPresenterStarted);
+    socket.on('screenshare:presenter-stopped', onPresenterStopped);
+    socket.on('screenshare:existing-presenter', onExistingPresenter);
+
     // Join the room via socket
     console.log('🔌 Joining socket room:', roomCode);
     socket.emit('join', { roomCode });
@@ -88,6 +116,14 @@ export default function Room() {
       socket.off('note:created', onCreated);
       socket.off('note:deleted', onDeleted);
       socket.off('room:deleted', onRoomDeleted);
+      socket.off('screenshare:presenter-started', onPresenterStarted);
+      socket.off('screenshare:presenter-stopped', onPresenterStopped);
+      socket.off('screenshare:existing-presenter', onExistingPresenter);
+      
+      socket.emit('screenshare:leave', {
+        roomCode,
+        userId: authUser?.id || socket.id
+      });
     };
   }, [roomCode, activeId, navigate, setGroups, authUser]);
 
@@ -222,6 +258,42 @@ export default function Room() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-slate-100">
       <Navbar />
+      
+      {/* Screen Share Notification Banner */}
+      {screenSharePresenter && !showScreenShare && (
+        <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white">
+          <div className="mx-auto max-w-6xl px-4 py-3 md:py-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3 flex-1">
+                <div className="animate-pulse flex-shrink-0">
+                  <svg className="w-6 h-6 md:w-8 md:h-8" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-base md:text-lg truncate">
+                    {screenSharePresenter.userName} is sharing their screen
+                  </div>
+                  <div className="text-xs md:text-sm opacity-90">
+                    Click to join and view their screen
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowScreenShare(true)}
+                className="w-full sm:w-auto px-4 md:px-6 py-2 md:py-3 bg-white text-green-700 rounded-lg hover:bg-gray-100 font-bold shadow-lg transition flex items-center justify-center gap-2 flex-shrink-0"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                <span className="hidden sm:inline">Join & View</span>
+                <span className="sm:hidden">Join</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       <main className="mx-auto max-w-6xl px-4 py-8">
         <div className="flex items-center justify-between mb-4">
