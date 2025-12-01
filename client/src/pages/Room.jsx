@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import FileViewerReadOnly from '../components/FileViewerReadOnly';
+import ScreenShare from '../components/ScreenShare';
 import api from '../lib/api';
 import socket from '../lib/socket';
 import { useApp } from '../context/AppContext';
@@ -22,6 +23,7 @@ export default function Room() {
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [newNoteName, setNewNoteName] = useState('');
   const [viewingFile, setViewingFile] = useState(null);
+  const [showScreenShare, setShowScreenShare] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -242,6 +244,15 @@ export default function Room() {
             )}
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={() => setShowScreenShare(true)}
+              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              Screen Share
+            </button>
             <button onClick={openNoteModal} className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark">New Note</button>
             <label className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 cursor-pointer flex items-center gap-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -461,6 +472,16 @@ export default function Room() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Screen Share */}
+      {showScreenShare && (
+        <ScreenShare
+          roomCode={roomCode}
+          userName={authUser?.name || 'Guest'}
+          authUser={authUser}
+          onClose={() => setShowScreenShare(false)}
+        />
       )}
 
       {/* File Viewer */}
