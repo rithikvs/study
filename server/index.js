@@ -152,8 +152,142 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Whiteboard events
+  socket.on('whiteboard:join', ({ roomCode, userName }) => {
+    try {
+      if (!roomCode || !userName) return;
+      
+      const whiteboardRoom = `whiteboard:${roomCode}`;
+      socket.join(whiteboardRoom);
+      
+      // Store user info in socket
+      socket.whiteboardRoom = whiteboardRoom;
+      socket.whiteboardUser = userName;
+      
+      // Get all users in the whiteboard room
+      const room = io.sockets.adapter.rooms.get(whiteboardRoom);
+      const users = [];
+      if (room) {
+        room.forEach((socketId) => {
+          const sock = io.sockets.sockets.get(socketId);
+          if (sock && sock.whiteboardUser) {
+            users.push(sock.whiteboardUser);
+          }
+        });
+      }
+      
+      console.log(`🎨 ${userName} joined whiteboard ${roomCode} (${users.length} users)`);
+      
+      // Notify all users in the room
+      io.to(whiteboardRoom).emit('whiteboard:user-joined', { userName, users });
+    } catch (err) {
+      console.error('whiteboard:join error', err);
+    }
+  });
+
+  socket.on('whiteboard:leave', ({ roomCode, userName }) => {
+    try {
+      if (!roomCode || !userName) return;
+      
+      const whiteboardRoom = `whiteboard:${roomCode}`;
+      socket.leave(whiteboardRoom);
+      
+      // Get remaining users
+      const room = io.sockets.adapter.rooms.get(whiteboardRoom);
+      const users = [];
+      if (room) {
+        room.forEach((socketId) => {
+          const sock = io.sockets.sockets.get(socketId);
+          if (sock && sock.whiteboardUser) {
+            users.push(sock.whiteboardUser);
+          }
+        });
+      }
+      
+      console.log(`🚪 ${userName} left whiteboard ${roomCode} (${users.length} users remaining)`);
+      
+      // Notify remaining users
+      io.to(whiteboardRoom).emit('whiteboard:user-left', { userName, users });
+    } catch (err) {
+      console.error('whiteboard:leave error', err);
+    }
+  });
+
+  socket.on('whiteboard:draw', ({ roomCode, pathData, userName }) => {
+    try {
+      if (!roomCode || !pathData) return;
+      
+      const whiteboardRoom = `whiteboard:${roomCode}`;
+      
+      // Broadcast drawing to all other users in the room
+      socket.to(whiteboardRoom).emit('whiteboard:draw', { pathData, userName });
+    } catch (err) {
+      console.error('whiteboard:draw error', err);
+    }
+  });
+
+  socket.on('whiteboard:clear', ({ roomCode, userName }) => {
+    try {
+      if (!roomCode) return;
+      
+      const whiteboardRoom = `whiteboard:${roomCode}`;
+      
+      console.log(`🧹 ${userName} cleared whiteboard ${roomCode}`);
+      
+      // Broadcast clear to all other users in the room
+      socket.to(whiteboardRoom).emit('whiteboard:clear', { userName });
+    } catch (err) {
+      console.error('whiteboard:clear error', err);
+    }
+  });
+
+  socket.on('whiteboard:request-state', ({ roomCode }) => {
+    try {
+      if (!roomCode) return;
+      
+      const whiteboardRoom = `whiteboard:${roomCode}`;
+      
+      // Ask other users in the room to send their canvas state
+      socket.to(whiteboardRoom).emit('whiteboard:request-state');
+    } catch (err) {
+      console.error('whiteboard:request-state error', err);
+    }
+  });
+
+  socket.on('whiteboard:send-state', ({ roomCode, canvasJSON }) => {
+    try {
+      if (!roomCode || !canvasJSON) return;
+      
+      const whiteboardRoom = `whiteboard:${roomCode}`;
+      
+      // Send canvas state to the requesting user
+      socket.to(whiteboardRoom).emit('whiteboard:state', { canvasJSON });
+    } catch (err) {
+      console.error('whiteboard:send-state error', err);
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('Socket disconnected:', socket.id);
+    
+    // Handle whiteboard disconnection
+    if (socket.whiteboardRoom && socket.whiteboardUser) {
+      const room = io.sockets.adapter.rooms.get(socket.whiteboardRoom);
+      const users = [];
+      if (room) {
+        room.forEach((socketId) => {
+          const sock = io.sockets.sockets.get(socketId);
+          if (sock && sock.whiteboardUser) {
+            users.push(sock.whiteboardUser);
+          }
+        });
+      }
+      
+      io.to(socket.whiteboardRoom).emit('whiteboard:user-left', { 
+        userName: socket.whiteboardUser, 
+        users 
+      });
+    }
   });
 });
 

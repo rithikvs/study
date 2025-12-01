@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import FileViewerReadOnly from '../components/FileViewerReadOnly';
+import Whiteboard from '../components/Whiteboard';
 import api from '../lib/api';
 import socket from '../lib/socket';
 import { useApp } from '../context/AppContext';
@@ -22,6 +23,7 @@ export default function Room() {
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [newNoteName, setNewNoteName] = useState('');
   const [viewingFile, setViewingFile] = useState(null);
+  const [showWhiteboard, setShowWhiteboard] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -243,6 +245,15 @@ export default function Room() {
           </div>
           <div className="flex gap-2">
             <button onClick={openNoteModal} className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark">New Note</button>
+            <button
+              onClick={() => setShowWhiteboard(true)}
+              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              Whiteboard
+            </button>
             <label className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 cursor-pointer flex items-center gap-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -466,6 +477,15 @@ export default function Room() {
       {/* File Viewer */}
       {viewingFile && (
         <FileViewerReadOnly file={viewingFile} onClose={() => setViewingFile(null)} />
+      )}
+
+      {/* Whiteboard */}
+      {showWhiteboard && authUser && (
+        <Whiteboard
+          roomCode={roomCode}
+          userName={authUser.name}
+          onClose={() => setShowWhiteboard(false)}
+        />
       )}
     </div>
   );
