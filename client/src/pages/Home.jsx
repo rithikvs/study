@@ -60,7 +60,7 @@ export default function Home() {
   const gated = !authUser;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-slate-100 dark:from-slate-900 dark:to-slate-800 transition-colors duration-300">
+    <div className="min-h-screen bg-gradient-to-b from-white to-slate-100 dark:from-slate-900 dark:to-slate-800">
       <Navbar />
       <main className="mx-auto max-w-6xl px-4 py-12">
         <section className="text-center">
@@ -74,44 +74,44 @@ export default function Home() {
         </section>
 
         <section className="mt-10">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-glow border border-slate-200 dark:border-slate-700 max-w-2xl mx-auto transition-colors duration-300">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-glow border border-slate-200 dark:border-slate-700 max-w-2xl mx-auto">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Create a new group</h2>
             <input
               value={groupName}
               onChange={(e) => setGroupName(e.target.value)}
               placeholder="Group name (e.g., Operating Systems Unit-2)"
-              className="mt-3 w-full px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
+              className="mt-3 w-full px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <button
               onClick={createGroup}
               disabled={gated || !groupName.trim() || loadingCreate}
-              className="mt-4 w-full bg-primary text-white font-medium py-3 rounded-lg hover:bg-primary-dark disabled:opacity-50 transition-colors"
+              className="mt-4 w-full bg-primary text-white font-medium py-3 rounded-lg hover:bg-primary-dark disabled:opacity-50">
             >
               {loadingCreate ? 'Creating...' : 'Create Group'}
             </button>
           </div>
         </section>
 
-        <section className="mt-6 bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-glow border border-slate-200 dark:border-slate-700 transition-colors duration-300">
+        <section className="mt-6 bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-glow border border-slate-200 dark:border-slate-700">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Join with room code</h2>
           <div className="mt-3 flex gap-3">
             <input
               value={joinCode}
               onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
               placeholder="Enter ROOMCODE"
-              className="flex-1 px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
+              className="flex-1 px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <button
               onClick={joinGroup}
               disabled={gated || !joinCode.trim() || loadingJoin}
-              className="bg-accent text-white font-medium px-6 rounded-lg hover:opacity-90 disabled:opacity-50 transition-colors"
+              className="bg-accent text-white font-medium px-6 rounded-lg hover:opacity-90 disabled:opacity-50">
             >
               {loadingJoin ? 'Joining...' : 'Join'}
             </button>
           </div>
         </section>
         {gated && (
-          <div className="mt-6 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200 rounded-xl p-4 transition-colors">
+          <div className="mt-6 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200 rounded-xl p-4">
             You must register or sign in to access features.
             <Link to="/auth" className="ml-2 text-primary underline">Go to Sign In</Link>
           </div>
@@ -126,7 +126,7 @@ export default function Home() {
                 <Link
                   key={group.roomCode}
                   to={`/room/${group.roomCode}`}
-                  className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-glow border border-slate-200 dark:border-slate-700 hover:shadow-lg transition-all duration-300 group"
+                  className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-glow border border-slate-200 dark:border-slate-700 hover:shadow-lg transition-shadow group">
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">

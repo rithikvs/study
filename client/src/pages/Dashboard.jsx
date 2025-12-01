@@ -6,7 +6,7 @@ export default function Dashboard() {
   const { userName, groups } = useApp();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-slate-100 dark:from-slate-900 dark:to-slate-800 transition-colors duration-300">
+    <div className="min-h-screen bg-gradient-to-b from-white to-slate-100 dark:from-slate-900 dark:to-slate-800">
       <Navbar />
       <main className="mx-auto max-w-6xl px-4 py-10">
         <div className="flex items-center justify-between">
@@ -22,7 +22,7 @@ export default function Dashboard() {
             <Link
               key={g.roomCode}
               to={`/room/${g.roomCode}`}
-              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 hover:shadow-glow transition-all duration-300"
+              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 hover:shadow-glow transition-shadow">
             >
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{g.name}</h3>

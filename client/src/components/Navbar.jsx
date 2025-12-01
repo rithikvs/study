@@ -25,23 +25,23 @@ export default function Navbar() {
   }
 
   return (
-    <header className="sticky top-0 z-50 bg-white/70 dark:bg-slate-800/70 backdrop-blur border-b border-slate-200 dark:border-slate-700 transition-colors duration-300">
+    <header className="sticky top-0 z-50 bg-white/70 dark:bg-slate-800/70 backdrop-blur border-b border-slate-200 dark:border-slate-700">
       <nav className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
         <Link to="/" className="text-xl font-bold text-primary">StudyHub</Link>
         <div className="flex items-center gap-4">
           <Link
             to="/"
-            className={`px-3 py-2 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ${pathname === '/' ? 'text-primary' : 'text-slate-600 dark:text-slate-300'}`}
+            className={`px-3 py-2 rounded hover:bg-slate-100 dark:hover:bg-slate-700 ${pathname === '/' ? 'text-primary' : 'text-slate-600 dark:text-slate-300'}`}
           >Home</Link>
           <Link
             to="/dashboard"
-            className={`px-3 py-2 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ${pathname.startsWith('/dashboard') ? 'text-primary' : 'text-slate-600 dark:text-slate-300'}`}
+            className={`px-3 py-2 rounded hover:bg-slate-100 dark:hover:bg-slate-700 ${pathname.startsWith('/dashboard') ? 'text-primary' : 'text-slate-600 dark:text-slate-300'}`}
           >Dashboard</Link>
           
           {/* Theme Toggle Button */}
           <button
             onClick={toggleTheme}
-            className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-300"
+            className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
             aria-label="Toggle theme"
             title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
           >
@@ -63,7 +63,7 @@ export default function Navbar() {
               </span>
               <button
                 onClick={handleSignOut}
-                className="px-3 py-2 rounded bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+                className="px-3 py-2 rounded bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50">
               >
                 Sign Out
               </button>
@@ -71,7 +71,7 @@ export default function Navbar() {
           ) : (
             <Link
               to="/auth"
-              className={`px-3 py-2 rounded hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ${pathname.startsWith('/auth') ? 'text-primary' : 'text-slate-600 dark:text-slate-300'}`}
+              className={`px-3 py-2 rounded hover:bg-slate-100 dark:hover:bg-slate-700 ${pathname.startsWith('/auth') ? 'text-primary' : 'text-slate-600 dark:text-slate-300'}`}
             >Sign In</Link>
           )}
         </div>
