@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Canvas, Path } from 'fabric';
+import * as fabric from 'fabric';
 import socket from '../lib/socket';
 
 export default function Whiteboard({ roomCode, userName, onClose }) {
   const canvasRef = useRef(null);
   const fabricCanvasRef = useRef(null);
-  const [isDrawing, setIsDrawing] = useState(false);
   const [color, setColor] = useState('#000000');
   const [brushSize, setBrushSize] = useState(2);
   const [tool, setTool] = useState('pen'); // 'pen' or 'eraser'
@@ -16,7 +15,7 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
     if (!canvasRef.current) return;
 
     // Initialize Fabric canvas
-    const canvas = new Canvas(canvasRef.current, {
+    const canvas = new fabric.Canvas(canvasRef.current, {
       isDrawingMode: true,
       width: window.innerWidth > 768 ? 800 : window.innerWidth - 40,
       height: window.innerHeight > 768 ? 600 : window.innerHeight - 200,
@@ -26,8 +25,10 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
     fabricCanvasRef.current = canvas;
 
     // Configure brush
-    canvas.freeDrawingBrush.color = color;
-    canvas.freeDrawingBrush.width = brushSize;
+    if (canvas.freeDrawingBrush) {
+      canvas.freeDrawingBrush.color = color;
+      canvas.freeDrawingBrush.width = brushSize;
+    }
 
     // Join whiteboard room
     socket.emit('whiteboard:join', { roomCode, userName });
@@ -37,21 +38,14 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
       if (isRemoteDrawing.current) return; // Don't broadcast remote drawings
       
       const path = e.path;
-      const pathData = {
-        path: path.path,
-        stroke: path.stroke,
-        strokeWidth: path.strokeWidth,
-        fill: path.fill,
-        scaleX: path.scaleX,
-        scaleY: path.scaleY,
-        left: path.left,
-        top: path.top,
-      };
-
+      
+      // Serialize the path to JSON for transmission
+      const pathJSON = path.toJSON();
+      
       // Broadcast drawing to all users in room
       socket.emit('whiteboard:draw', {
         roomCode,
-        pathData,
+        pathData: pathJSON,
         userName,
       });
     });
@@ -62,20 +56,15 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
       
       isRemoteDrawing.current = true;
       
-      const path = new Path(pathData.path, {
-        stroke: pathData.stroke,
-        strokeWidth: pathData.strokeWidth,
-        fill: pathData.fill || '',
-        scaleX: pathData.scaleX || 1,
-        scaleY: pathData.scaleY || 1,
-        left: pathData.left || 0,
-        top: pathData.top || 0,
+      // Create path from JSON data
+      fabric.Path.fromObject(pathData).then((path) => {
+        canvas.add(path);
+        canvas.renderAll();
+        isRemoteDrawing.current = false;
+      }).catch((err) => {
+        console.error('Error creating path:', err);
+        isRemoteDrawing.current = false;
       });
-      
-      canvas.add(path);
-      canvas.renderAll();
-      
-      isRemoteDrawing.current = false;
     });
 
     // Listen for clear events
@@ -108,8 +97,14 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
     socket.on('whiteboard:state', ({ canvasJSON }) => {
       if (canvasJSON) {
         isRemoteDrawing.current = true;
-        canvas.loadFromJSON(canvasJSON, () => {
+        fabric.util.enlivenObjects(canvasJSON.objects || []).then((objects) => {
+          canvas.clear();
+          canvas.backgroundColor = '#ffffff';
+          objects.forEach((obj) => canvas.add(obj));
           canvas.renderAll();
+          isRemoteDrawing.current = false;
+        }).catch((err) => {
+          console.error('Error loading canvas state:', err);
           isRemoteDrawing.current = false;
         });
       }
@@ -149,14 +144,16 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
     if (!fabricCanvasRef.current) return;
     const canvas = fabricCanvasRef.current;
     
-    if (tool === 'pen') {
-      canvas.freeDrawingBrush.color = color;
-      canvas.freeDrawingBrush.width = brushSize;
-      canvas.isDrawingMode = true;
-    } else if (tool === 'eraser') {
-      canvas.freeDrawingBrush.color = '#ffffff';
-      canvas.freeDrawingBrush.width = brushSize * 3;
-      canvas.isDrawingMode = true;
+    if (canvas.freeDrawingBrush) {
+      if (tool === 'pen') {
+        canvas.freeDrawingBrush.color = color;
+        canvas.freeDrawingBrush.width = brushSize;
+        canvas.isDrawingMode = true;
+      } else if (tool === 'eraser') {
+        canvas.freeDrawingBrush.color = '#ffffff';
+        canvas.freeDrawingBrush.width = brushSize * 3;
+        canvas.isDrawingMode = true;
+      }
     }
   }, [color, brushSize, tool]);
 
