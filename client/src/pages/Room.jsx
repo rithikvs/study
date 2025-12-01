@@ -228,7 +228,7 @@ export default function Room() {
           <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
             <div>
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center">
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
@@ -244,7 +244,7 @@ export default function Room() {
                   <span className="text-sm font-medium text-slate-700">Team Members:</span>
                   <div className="flex flex-wrap gap-2">
                     {group.members?.map((member) => (
-                      <span key={member._id} className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs font-medium rounded-full shadow-sm">
+                      <span key={member._id} className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-600 text-white text-xs font-medium rounded-full shadow-sm">
                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                           <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
                         </svg>
@@ -257,7 +257,7 @@ export default function Room() {
             </div>
             
             <div className="flex flex-wrap gap-2">
-              <button onClick={openNoteModal} className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-4 py-2.5 rounded-xl hover:shadow-glow transition flex items-center gap-2 font-medium">
+              <button onClick={openNoteModal} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl shadow-md hover:shadow-lg transition flex items-center gap-2 font-medium">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
@@ -265,14 +265,14 @@ export default function Room() {
               </button>
               <button
                 onClick={() => setShowWhiteboard(true)}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2.5 rounded-xl hover:shadow-glow transition flex items-center gap-2 font-medium"
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl shadow-md hover:shadow-lg transition flex items-center gap-2 font-medium"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                 </svg>
                 Whiteboard
               </button>
-              <label className="bg-gradient-to-r from-green-600 to-teal-600 text-white px-4 py-2.5 rounded-xl hover:shadow-glow transition cursor-pointer flex items-center gap-2 font-medium">
+              <label className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl shadow-md hover:shadow-lg transition cursor-pointer flex items-center gap-2 font-medium">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
@@ -282,7 +282,7 @@ export default function Room() {
               {isRoomCreator && (
                 <button 
                   onClick={deleteRoom} 
-                  className="bg-gradient-to-r from-red-600 to-pink-600 text-white px-4 py-2.5 rounded-xl hover:shadow-glow transition flex items-center gap-2 font-medium"
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl shadow-md hover:shadow-lg transition flex items-center gap-2 font-medium"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -313,7 +313,7 @@ export default function Room() {
             onClick={() => setActiveTab('files')}
             className={`flex-1 px-6 py-3 rounded-lg font-medium transition flex items-center justify-center gap-2 ${
               activeTab === 'files' 
-                ? 'bg-gradient-to-r from-green-600 to-teal-600 text-white shadow-lg' 
+                ? 'bg-purple-600 text-white shadow-lg' 
                 : 'text-slate-700 hover:bg-white/50'
             }`}
           >
@@ -329,7 +329,7 @@ export default function Room() {
             <>
               <aside className="glass rounded-2xl p-5 overflow-auto h-[65vh] animate-fadeIn" style={{ animationDelay: '200ms' }}>
                 <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-lg flex items-center justify-center">
+                  <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
                     <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
@@ -343,7 +343,7 @@ export default function Room() {
                     onClick={() => setActiveId(n._id)}
                     className={`w-full text-left px-4 py-3 rounded-xl transition ${
                       activeId === n._id 
-                        ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg' 
+                        ? 'bg-purple-600 text-white shadow-lg' 
                         : 'bg-white/50 hover:bg-white hover:shadow-md'
                     }`}
                   >
@@ -389,7 +389,7 @@ export default function Room() {
                 {!activeNote ? (
                   <div className="h-full grid place-items-center">
                     <div className="text-center">
-                      <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl mb-4">
+                      <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-600 rounded-2xl mb-4">
                         <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>

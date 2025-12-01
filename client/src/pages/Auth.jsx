@@ -48,7 +48,7 @@ export default function Auth() {
       <Navbar />
       <main className="mx-auto max-w-md px-4 py-12">
         <div className="text-center mb-8 animate-fadeIn">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl mb-4 animate-float">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-600 rounded-2xl mb-4">
             <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
@@ -62,7 +62,7 @@ export default function Auth() {
             <button
               className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition ${
                 mode === 'login' 
-                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg' 
+                  ? 'bg-purple-600 text-white shadow-lg' 
                   : 'text-slate-600 hover:text-slate-800'
               }`}
               onClick={() => setMode('login')}
@@ -77,7 +77,7 @@ export default function Auth() {
             <button
               className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition ${
                 mode === 'register' 
-                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg' 
+                  ? 'bg-purple-600 text-white shadow-lg' 
                   : 'text-slate-600 hover:text-slate-800'
               }`}
               onClick={() => setMode('register')}
@@ -150,7 +150,7 @@ export default function Auth() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-medium py-3.5 rounded-xl hover:shadow-glow disabled:opacity-50 transition flex items-center justify-center gap-2 mt-6"
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 rounded-xl shadow-md hover:shadow-lg disabled:opacity-50 transition flex items-center justify-center gap-2 mt-6"
             >
               {loading ? (
                 <>
