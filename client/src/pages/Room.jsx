@@ -51,25 +51,34 @@ export default function Room() {
   }, [roomCode, navigate]);
 
   useEffect(() => {
-    // Listen for screen share events
-    socket.emit('screenshare:join', {
-      roomCode,
-      userId: authUser?.id || socket.id,
-      userName: authUser?.name || 'Guest',
-    });
+    // Join the room via socket
+    console.log('🔌 Joining socket room:', roomCode);
+    socket.emit('join', { roomCode });
+    
+    // Listen for screen share events - emit join after regular room join
+    if (authUser) {
+      socket.emit('screenshare:join', {
+        roomCode,
+        userId: authUser.id,
+        userName: authUser.name,
+      });
+    }
 
     function onPresenterStarted({ userId, userName }) {
-      if (userId !== authUser?.id) {
+      console.log('📺 Screen share started by:', userName, userId);
+      if (authUser && userId !== authUser.id) {
         setScreenSharePresenter({ userId, userName });
       }
     }
 
     function onPresenterStopped() {
+      console.log('📺 Screen share stopped');
       setScreenSharePresenter(null);
     }
 
     function onExistingPresenter({ userId, userName }) {
-      if (userId !== authUser?.id) {
+      console.log('📺 Existing presenter found:', userName, userId);
+      if (authUser && userId !== authUser.id) {
         setScreenSharePresenter({ userId, userName });
       }
     }
@@ -77,10 +86,6 @@ export default function Room() {
     socket.on('screenshare:presenter-started', onPresenterStarted);
     socket.on('screenshare:presenter-stopped', onPresenterStopped);
     socket.on('screenshare:existing-presenter', onExistingPresenter);
-
-    // Join the room via socket
-    console.log('🔌 Joining socket room:', roomCode);
-    socket.emit('join', { roomCode });
     
     function onUpdated({ note }) {
       console.log('📝 Note updated:', note);

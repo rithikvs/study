@@ -156,15 +156,19 @@ io.on('connection', (socket) => {
   socket.on('screenshare:join', ({ roomCode, userId, userName }) => {
     try {
       if (!roomCode || !userId) return;
-      socket.data = { userId, userName };
-      console.log(`📺 User ${userName} joined screenshare session in room ${roomCode}`);
+      
+      // Ensure socket data is set (merge with existing data)
+      socket.data = { ...socket.data, userId, userName };
+      
+      console.log(`📺 User ${userName} (${userId}) joined screenshare session in room ${roomCode}`);
       
       // Send current presenter info to late joiners
       const roomSockets = io.sockets.adapter.rooms.get(roomCode);
       if (roomSockets) {
+        console.log(`📺 Checking ${roomSockets.size} sockets in room ${roomCode} for existing presenter`);
         for (const socketId of roomSockets) {
           const s = io.sockets.sockets.get(socketId);
-          if (s && s.data?.isPresenting) {
+          if (s && s.data?.isPresenting && s.data?.userId) {
             socket.emit('screenshare:existing-presenter', {
               userId: s.data.userId,
               userName: s.data.userName
@@ -206,8 +210,17 @@ io.on('connection', (socket) => {
       }
       
       socket.data.isPresenting = true;
-      console.log(`🎥 User ${userName} started presenting screen in room ${roomCode}`);
+      socket.data.userId = userId;
+      socket.data.userName = userName;
+      
+      console.log(`🎥 User ${userName} (${userId}) started presenting screen in room ${roomCode}`);
+      
+      // Broadcast to entire room (including sender)
       io.to(roomCode).emit('screenshare:presenter-started', { userId, userName });
+      
+      // Log how many sockets received the broadcast
+      const roomSockets = io.sockets.adapter.rooms.get(roomCode);
+      console.log(`📤 Broadcast screenshare:presenter-started to ${roomSockets?.size || 0} users in room ${roomCode}`);
     } catch (err) {
       console.error('screenshare:start-presenting error', err);
     }

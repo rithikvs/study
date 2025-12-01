@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import io from 'socket.io-client';
-
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:4000';
+import socket from '../lib/socket';
 
 export default function ScreenShare({ roomCode, onClose, userName, authUser }) {
   const [isSharing, setIsSharing] = useState(false);
@@ -52,24 +50,9 @@ export default function ScreenShare({ roomCode, onClose, userName, authUser }) {
 
   // Socket connection
   useEffect(() => {
-    socketRef.current = io(SOCKET_URL, {
-      transports: ['websocket', 'polling'],
-    });
-
-    const socket = socketRef.current;
-    
-    // Wait for socket to connect first
-    socket.on('connect', () => {
-      const userId = authUser?.id || socket.id;
-      userIdRef.current = userId;
-      
-      // Join screen share room
-      socket.emit('screenshare:join', {
-        roomCode,
-        userId,
-        userName,
-      });
-    });
+    socketRef.current = socket;
+    const userId = authUser?.id || socket.id;
+    userIdRef.current = userId;
 
     // Handle presenter started event
     socket.on('screenshare:presenter-started', ({ userName: name, userId: presenterId }) => {
@@ -143,7 +126,6 @@ export default function ScreenShare({ roomCode, onClose, userName, authUser }) {
       if (userIdRef.current) {
         socket.emit('screenshare:leave', { roomCode, userId: userIdRef.current });
       }
-      socket.disconnect();
       stopSharing();
     };
   }, [roomCode, userName, authUser]);
@@ -338,12 +320,14 @@ export default function ScreenShare({ roomCode, onClose, userName, authUser }) {
     setIsViewing(true);
     setShowJoinNotification(false);
     
-    // Request to view the presenter's screen
-    socketRef.current.emit('screenshare:request-view', {
-      roomCode,
-      userId: userIdRef.current,
-      userName,
-    });
+      // Request to view the presenter's screen
+    if (socketRef.current) {
+      socketRef.current.emit('screenshare:request-view', {
+        roomCode,
+        userId: userIdRef.current,
+        userName,
+      });
+    }
   };
 
   return (
