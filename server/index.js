@@ -66,6 +66,7 @@ const groupRoutes = require('./routes/groups');
 const noteRoutes = require('./routes/notes');
 const authRoutes = require('./routes/auth');
 const fileRoutes = require('./routes/files');
+const whiteboardRoutes = require('./routes/whiteboard');
 const auth = require('./middleware/auth');
 
 // Pass io instance to routes that need it
@@ -75,6 +76,7 @@ groupRoutes.setIO(io);
 app.use('/api/groups', auth, groupRoutes);
 app.use('/api/notes', auth, noteRoutes);
 app.use('/api/files', auth, fileRoutes);
+app.use('/api/whiteboard', auth, whiteboardRoutes);
 app.use('/api/auth', authRoutes);
 
 app.get('/', (req, res) => {

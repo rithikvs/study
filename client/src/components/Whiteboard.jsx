@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as fabric from 'fabric';
 import socket from '../lib/socket';
+import api from '../lib/api';
 
 export default function Whiteboard({ roomCode, userName, onClose }) {
   const canvasRef = useRef(null);
@@ -9,7 +10,9 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
   const [brushSize, setBrushSize] = useState(2);
   const [tool, setTool] = useState('pen'); // 'pen' or 'eraser'
   const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const isRemoteDrawing = useRef(false);
+  const saveTimeoutRef = useRef(null);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -30,6 +33,9 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
       canvas.freeDrawingBrush.width = brushSize;
     }
 
+    // Load existing whiteboard data from database
+    loadWhiteboardData(canvas);
+
     // Join whiteboard room
     socket.emit('whiteboard:join', { roomCode, userName });
 
@@ -48,6 +54,19 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
         pathData: pathJSON,
         userName,
       });
+
+      // Auto-save to database after drawing
+      debouncedSave(canvas);
+    });
+
+    // Save when objects are modified
+    canvas.on('object:modified', () => {
+      debouncedSave(canvas);
+    });
+
+    // Save when objects are removed
+    canvas.on('object:removed', () => {
+      debouncedSave(canvas);
     });
 
     // Listen for drawings from other users
@@ -61,6 +80,8 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
         canvas.add(path);
         canvas.renderAll();
         isRemoteDrawing.current = false;
+        // Auto-save when receiving remote drawings
+        debouncedSave(canvas);
       }).catch((err) => {
         console.error('Error creating path:', err);
         isRemoteDrawing.current = false;
@@ -127,6 +148,16 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
     window.addEventListener('resize', handleResize);
 
     return () => {
+      // Save before closing
+      if (fabricCanvasRef.current) {
+        saveWhiteboardData(fabricCanvasRef.current);
+      }
+      
+      // Clear timeout
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+
       socket.emit('whiteboard:leave', { roomCode, userName });
       socket.off('whiteboard:draw');
       socket.off('whiteboard:clear');
@@ -138,6 +169,46 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
       canvas.dispose();
     };
   }, [roomCode, userName]);
+
+  // Load whiteboard data from database
+  async function loadWhiteboardData(canvas) {
+    try {
+      setLoading(true);
+      const { data } = await api.get(`/whiteboard/${roomCode}`);
+      
+      if (data.canvasData && data.canvasData.objects) {
+        isRemoteDrawing.current = true;
+        const objects = await fabric.util.enlivenObjects(data.canvasData.objects);
+        objects.forEach((obj) => canvas.add(obj));
+        canvas.renderAll();
+        isRemoteDrawing.current = false;
+      }
+    } catch (err) {
+      console.error('Error loading whiteboard:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Save whiteboard data to database
+  async function saveWhiteboardData(canvas) {
+    try {
+      const canvasData = canvas.toJSON();
+      await api.post(`/whiteboard/${roomCode}`, { canvasData });
+    } catch (err) {
+      console.error('Error saving whiteboard:', err);
+    }
+  }
+
+  // Debounced save function
+  function debouncedSave(canvas) {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = setTimeout(() => {
+      saveWhiteboardData(canvas);
+    }, 2000); // Save 2 seconds after last change
+  }
 
   // Update brush when color or size changes
   useEffect(() => {
@@ -181,14 +252,21 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
     }, 3000);
   }
 
-  function clearCanvas() {
+  async function clearCanvas() {
     if (!fabricCanvasRef.current) return;
-    if (!confirm('Clear the entire whiteboard for everyone?')) return;
+    if (!confirm('Clear the entire whiteboard for everyone? This will permanently delete all saved drawings.')) return;
     
     const canvas = fabricCanvasRef.current;
     canvas.clear();
     canvas.backgroundColor = '#ffffff';
     canvas.renderAll();
+    
+    // Delete from database
+    try {
+      await api.delete(`/whiteboard/${roomCode}`);
+    } catch (err) {
+      console.error('Error clearing whiteboard from database:', err);
+    }
     
     // Broadcast clear to all users
     socket.emit('whiteboard:clear', { roomCode, userName });
@@ -327,11 +405,12 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
             <button
               onClick={downloadCanvas}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium"
+              title="Download as PNG image"
             >
               <svg className="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              Save
+              Download
             </button>
             <button
               onClick={clearCanvas}
@@ -346,7 +425,15 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
         </div>
 
         {/* Canvas */}
-        <div className="flex-1 overflow-auto p-4 bg-slate-100 flex items-center justify-center">
+        <div className="flex-1 overflow-auto p-4 bg-slate-100 flex items-center justify-center relative">
+          {loading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-slate-100 bg-opacity-90 z-10">
+              <div className="text-center">
+                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+                <p className="mt-3 text-slate-600 font-medium">Loading whiteboard...</p>
+              </div>
+            </div>
+          )}
           <div className="shadow-lg rounded-lg overflow-hidden bg-white">
             <canvas ref={canvasRef} />
           </div>
