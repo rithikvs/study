@@ -26,7 +26,7 @@ export default function Navbar() {
     <header className="sticky top-0 z-50 glass border-b border-white/20">
       <nav className="mx-auto max-w-6xl px-4 py-4 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 group">
-          <div className="w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition">
+          <div className="w-10 h-10 bg-purple-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition">
             <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
@@ -39,7 +39,7 @@ export default function Navbar() {
             to="/"
             className={`px-4 py-2 rounded-xl font-medium transition ${
               pathname === '/' 
-                ? 'bg-purple-600 text-white shadow-md' 
+                ? 'bg-purple-500 text-white shadow-md' 
                 : 'text-slate-700 hover:bg-white/50'
             }`}
           >
@@ -55,7 +55,7 @@ export default function Navbar() {
             to="/dashboard"
             className={`px-4 py-2 rounded-xl font-medium transition ${
               pathname.startsWith('/dashboard') 
-                ? 'bg-purple-600 text-white shadow-md' 
+                ? 'bg-purple-500 text-white shadow-md' 
                 : 'text-slate-700 hover:bg-white/50'
             }`}
           >
@@ -75,7 +75,7 @@ export default function Navbar() {
               </div>
               <button
                 onClick={handleSignOut}
-                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium shadow-md hover:shadow-lg transition flex items-center gap-2"
+                className="px-4 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white font-medium shadow-md hover:shadow-lg transition flex items-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -86,7 +86,7 @@ export default function Navbar() {
           ) : (
             <Link
               to="/auth"
-              className="px-4 py-2 rounded-xl font-medium transition ml-2 bg-purple-600 hover:bg-purple-700 text-white shadow-md hover:shadow-lg"
+              className="px-4 py-2 rounded-xl font-medium transition ml-2 bg-purple-500 hover:bg-purple-600 text-white shadow-md hover:shadow-lg"
             >
               <span className="flex items-center gap-2">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

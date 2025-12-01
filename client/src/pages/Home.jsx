@@ -87,7 +87,7 @@ export default function Home() {
           <section>
             <div className="glass rounded-2xl p-6 shadow-glow">
               <div className="flex items-center gap-3 mb-5">
-                <div className="p-2.5 rounded-xl bg-purple-600">
+                <div className="p-2.5 rounded-xl bg-purple-500">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
@@ -98,12 +98,12 @@ export default function Home() {
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
                 placeholder="Group name (e.g., Operating Systems Unit-2)"
-                className="w-full px-5 py-4 rounded-xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all outline-none text-slate-700 font-medium"
+                className="w-full px-5 py-4 rounded-xl border-2 border-slate-200 focus:border-purple-400 focus:ring-4 focus:ring-purple-400/20 transition-all outline-none text-slate-700 font-medium"
               />
               <button
                 onClick={createGroup}
                 disabled={gated || !groupName.trim() || loadingCreate}
-                className="mt-3 w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-xl shadow-md hover:shadow-lg disabled:opacity-50 transition flex items-center justify-center gap-2"
+                className="mt-3 w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 rounded-xl shadow-md hover:shadow-lg disabled:opacity-50 transition flex items-center justify-center gap-2"
               >
                 {loadingCreate ? (
                   <>
@@ -126,32 +126,39 @@ export default function Home() {
           <section>
             <div className="glass rounded-2xl p-6 shadow-glow">
               <div className="flex items-center gap-3 mb-5">
-                <div className="p-2.5 rounded-xl bg-purple-600">
+                <div className="p-2.5 rounded-xl bg-purple-500">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                   </svg>
                 </div>
                 <h2 className="text-xl font-bold gradient-text">Join Group</h2>
               </div>
-              <div className="flex gap-2">
-                <input
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  placeholder="ROOM CODE"
-                  className="flex-1 px-4 py-2.5 rounded-xl border-2 border-slate-200 focus:border-purple-600 focus:ring-4 focus:ring-purple-600/20 transition-all outline-none text-slate-700 font-bold tracking-wider text-center"
-                />
-                <button
-                  onClick={joinGroup}
-                  disabled={gated || !joinCode.trim() || loadingJoin}
-                  className="bg-purple-600 hover:bg-purple-700 text-white font-semibold px-6 rounded-xl shadow-md hover:shadow-lg disabled:opacity-50 transition"
-                >
-                  {loadingJoin ? (
+              <input
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                placeholder="Your display name"
+                className="w-full px-5 py-4 rounded-xl border-2 border-slate-200 focus:border-purple-400 focus:ring-4 focus:ring-purple-400/20 transition-all outline-none text-slate-700 font-medium mb-3"
+              />
+              <input
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                placeholder="ROOM CODE"
+                className="w-full px-4 py-2.5 rounded-xl border-2 border-slate-200 focus:border-purple-400 focus:ring-4 focus:ring-purple-400/20 transition-all outline-none text-slate-700 font-bold tracking-wider text-center mb-3"
+              />
+              <button
+                onClick={joinGroup}
+                disabled={gated || !joinCode.trim() || loadingJoin}
+                className="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 rounded-xl shadow-md hover:shadow-lg disabled:opacity-50 transition"
+              >
+                {loadingJoin ? (
+                  <div className="flex items-center justify-center gap-2">
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    'Join'
-                  )}
-                </button>
-              </div>
+                    Joining...
+                  </div>
+                ) : (
+                  'Enter Code'
+                )}
+              </button>
               <p className="mt-2 text-xs text-slate-600 text-center">
                 Enter the 6-character room code
               </p>
@@ -191,11 +198,11 @@ export default function Home() {
                       <h3 className="font-bold text-lg text-slate-800 group-hover:text-purple-600 transition">
                         {group.name}
                       </h3>
-                      <span className="inline-block mt-2 px-2.5 py-1 rounded-full bg-purple-600 text-white font-mono font-bold text-xs">
+                      <span className="inline-block mt-2 px-2.5 py-1 rounded-full bg-purple-400 text-white font-mono font-bold text-xs">
                         {group.roomCode}
                       </span>
                     </div>
-                    <div className="p-2 rounded-lg bg-purple-100 group-hover:bg-purple-600 group-hover:scale-110 transition">
+                    <div className="p-2 rounded-lg bg-purple-100 group-hover:bg-purple-500 group-hover:scale-110 transition">
                       <svg className="w-4 h-4 text-purple-600 group-hover:text-white transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>

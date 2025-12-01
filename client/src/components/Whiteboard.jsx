@@ -337,7 +337,7 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
               onClick={() => setTool('pen')}
               className={`px-4 py-2 rounded-lg font-medium transition ${
                 tool === 'pen'
-                  ? 'bg-blue-600 text-white shadow-md'
+                  ? 'bg-blue-500 text-white shadow-md'
                   : 'bg-white text-slate-600 hover:bg-slate-100'
               }`}
             >
@@ -350,7 +350,7 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
               onClick={() => setTool('eraser')}
               className={`px-4 py-2 rounded-lg font-medium transition ${
                 tool === 'eraser'
-                  ? 'bg-blue-600 text-white shadow-md'
+                  ? 'bg-blue-500 text-white shadow-md'
                   : 'bg-white text-slate-600 hover:bg-slate-100'
               }`}
             >
@@ -416,7 +416,7 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
             </button>
             <button
               onClick={clearCanvas}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium"
+              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition font-medium"
             >
               <svg className="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
