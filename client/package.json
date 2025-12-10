@@ -12,6 +12,7 @@
   "dependencies": {
     "axios": "^1.13.2",
     "fabric": "^6.9.0",
+    "jspdf": "^3.0.4",
     "nanoid": "^5.1.6",
     "pdfjs-dist": "^5.4.394",
     "react": "^19.2.0",

@@ -243,6 +243,21 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('whiteboard:undo', ({ roomCode, userName }) => {
+    try {
+      if (!roomCode) return;
+      
+      const whiteboardRoom = `whiteboard:${roomCode}`;
+      
+      console.log(`↩️ ${userName} undid last stroke in whiteboard ${roomCode}`);
+      
+      // Broadcast undo to all other users in the room
+      socket.to(whiteboardRoom).emit('whiteboard:undo', { userName });
+    } catch (err) {
+      console.error('whiteboard:undo error', err);
+    }
+  });
+
   socket.on('whiteboard:request-state', ({ roomCode }) => {
     try {
       if (!roomCode) return;

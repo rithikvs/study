@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Canvas, PencilBrush, Path, util } from 'fabric';
+import { jsPDF } from 'jspdf';
 import socket from '../lib/socket';
 import api from '../lib/api';
 
 export default function Whiteboard({ roomCode, userName, onClose }) {
-  const canvasRef = useRef(null);
-  const fabricCanvasRef = useRef(null);
   const [color, setColor] = useState('#000000');
   const [brushSize, setBrushSize] = useState(2);
   const [tool, setTool] = useState('pen'); // 'pen' or 'eraser'
@@ -13,65 +12,90 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
   const [loading, setLoading] = useState(true);
   const isRemoteDrawing = useRef(false);
   const saveTimeoutRef = useRef(null);
-  const [drawingHistory, setDrawingHistory] = useState([]);
+  const [pages, setPages] = useState([{ id: 0, canvas: null, history: [] }]);
+  const canvasRefs = useRef([]);
+  const fabricCanvasRefs = useRef([]);
+  const containerRef = useRef(null);
 
+  // Initialize canvases for all pages
   useEffect(() => {
-    if (!canvasRef.current) return;
+    const initializeCanvases = () => {
+      pages.forEach((page, index) => {
+        if (!canvasRefs.current[index] || fabricCanvasRefs.current[index]) return;
 
-    // Initialize Fabric canvas
-    const canvas = new Canvas(canvasRef.current, {
-      isDrawingMode: true,
-      width: window.innerWidth > 768 ? 800 : window.innerWidth - 40,
-      height: window.innerHeight > 768 ? 600 : window.innerHeight - 200,
-      backgroundColor: '#ffffff',
-    });
+        const canvasWidth = window.innerWidth > 768 ? 800 : window.innerWidth - 40;
+        const canvasHeight = 600;
 
-    fabricCanvasRef.current = canvas;
+        const canvas = new Canvas(canvasRefs.current[index], {
+          isDrawingMode: true,
+          width: canvasWidth,
+          height: canvasHeight,
+          backgroundColor: '#ffffff',
+        });
 
-    // Set up drawing brush
-    const brush = new PencilBrush(canvas);
-    brush.color = color;
-    brush.width = brushSize;
-    canvas.freeDrawingBrush = brush;
+        fabricCanvasRefs.current[index] = canvas;
 
-    // Load existing whiteboard data from database
-    loadWhiteboardData(canvas);
+        // Set up drawing brush
+        const brush = new PencilBrush(canvas);
+        brush.color = color;
+        brush.width = brushSize;
+        canvas.freeDrawingBrush = brush;
 
-    // Join whiteboard room
-    socket.emit('whiteboard:join', { roomCode, userName });
+        // Handle path created (drawing completed)
+        canvas.on('path:created', (e) => {
+          if (isRemoteDrawing.current) return;
+          
+          const path = e.path;
+          
+          // Add to this page's history
+          setPages(prevPages => {
+            const newPages = [...prevPages];
+            newPages[index] = {
+              ...newPages[index],
+              history: [...newPages[index].history, path]
+            };
+            return newPages;
+          });
+          
+          // Serialize the path to JSON for transmission
+          const pathJSON = path.toJSON();
+          
+          // Broadcast drawing to all users in room
+          socket.emit('whiteboard:draw', {
+            roomCode,
+            pathData: pathJSON,
+            userName,
+            pageNumber: index,
+          });
 
-    // Handle path created (drawing completed)
-    canvas.on('path:created', (e) => {
-      if (isRemoteDrawing.current) return; // Don't broadcast remote drawings
-      
-      const path = e.path;
-      
-      // Add to drawing history for undo
-      setDrawingHistory(prev => [...prev, path]);
-      
-      // Serialize the path to JSON for transmission
-      const pathJSON = path.toJSON();
-      
-      // Broadcast drawing to all users in room
-      socket.emit('whiteboard:draw', {
-        roomCode,
-        pathData: pathJSON,
-        userName,
+          // Auto-save to database after drawing
+          debouncedSave();
+        });
+
+        // Load existing data for this page if any
+        if (page.objects && page.objects.length > 0) {
+          isRemoteDrawing.current = true;
+          util.enlivenObjects(page.objects).then((objects) => {
+            objects.forEach((obj) => canvas.add(obj));
+            canvas.renderAll();
+            isRemoteDrawing.current = false;
+          });
+        }
       });
+    };
 
-      // Auto-save to database after drawing
-      debouncedSave(canvas);
-    });
+    initializeCanvases();
 
-    // Save when objects are modified
-    canvas.on('object:modified', () => {
-      debouncedSave(canvas);
-    });
+    // Join whiteboard room only once
+    if (pages.length === 1 && !fabricCanvasRefs.current[0]) {
+      socket.emit('whiteboard:join', { roomCode, userName });
+      loadWhiteboardData();
+    }
 
-    // Save when objects are removed
-    canvas.on('object:removed', () => {
-      debouncedSave(canvas);
-    });
+    return () => {
+      // Cleanup handled in separate effect
+    };
+  }, [pages.length]);
 
     // Listen for drawings from other users
       socket.on('whiteboard:draw', ({ pathData, userName: drawingUser }) => {
@@ -94,12 +118,13 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
     });
 
     // Listen for clear events
-    socket.on('whiteboard:clear', ({ userName: clearingUser }) => {
-      if (clearingUser !== userName) {
+    socket.on('whiteboard:clear', ({ userName: clearingUser, pageNumber }) => {
+      if (clearingUser !== userName && pageNumber === currentPage) {
         canvas.clear();
         canvas.backgroundColor = '#ffffff';
         canvas.renderAll();
         setDrawingHistory([]);
+        pagesDataRef.current[currentPage] = { objects: [], history: [] };
       }
     });
 
@@ -113,6 +138,40 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
           canvas.renderAll();
           return prev.slice(0, -1);
         });
+      }
+    });
+
+    // Listen for page add events
+    socket.on('whiteboard:page-add', ({ userName: addingUser, pageCount }) => {
+      if (addingUser !== userName) {
+        while (pagesDataRef.current.length < pageCount) {
+          pagesDataRef.current.push({ objects: [], history: [] });
+        }
+        setPages([...pagesDataRef.current]);
+        showNotification(`${addingUser} added a new page`);
+      }
+    });
+
+    // Listen for page switch events
+    socket.on('whiteboard:page-switch', ({ userName: switchingUser, pageNumber }) => {
+      if (switchingUser !== userName) {
+        showNotification(`${switchingUser} switched to page ${pageNumber + 1}`);
+      }
+    });
+
+    // Listen for page delete events
+    socket.on('whiteboard:page-delete', ({ userName: deletingUser, pageIndex, pageCount }) => {
+      if (deletingUser !== userName) {
+        pagesDataRef.current.splice(pageIndex, 1);
+        setPages([...pagesDataRef.current]);
+        
+        if (currentPage >= pagesDataRef.current.length) {
+          const newPage = pagesDataRef.current.length - 1;
+          setCurrentPage(newPage);
+          loadPageData(newPage);
+        }
+        
+        showNotification(`${deletingUser} deleted page ${pageIndex + 1}`);
       }
     });
 
@@ -181,6 +240,9 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
       socket.off('whiteboard:draw');
       socket.off('whiteboard:clear');
       socket.off('whiteboard:undo');
+      socket.off('whiteboard:page-add');
+      socket.off('whiteboard:page-switch');
+      socket.off('whiteboard:page-delete');
       socket.off('whiteboard:user-joined');
       socket.off('whiteboard:user-left');
       socket.off('whiteboard:state');
@@ -296,27 +358,72 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
 
   async function clearCanvas() {
     if (!fabricCanvasRef.current) return;
-    if (!confirm('Clear the entire whiteboard for everyone? This will permanently delete all saved drawings.')) return;
+    if (!confirm('Clear the current page for everyone? This will permanently delete all drawings on this page.')) return;
     
     const canvas = fabricCanvasRef.current;
     canvas.clear();
     canvas.backgroundColor = '#ffffff';
     canvas.renderAll();
     
-    // Clear history
+    // Clear current page history
     setDrawingHistory([]);
+    pagesDataRef.current[currentPage] = { objects: [], history: [] };
+    setPages([...pagesDataRef.current]);
     
-    // Delete from database
-    try {
-      await api.delete(`/whiteboard/${roomCode}`);
-    } catch (err) {
-      console.error('Error clearing whiteboard from database:', err);
-    }
+    // Save to database
+    debouncedSave(canvas);
     
     // Broadcast clear to all users
-    socket.emit('whiteboard:clear', { roomCode, userName });
+    socket.emit('whiteboard:clear', { roomCode, userName, pageNumber: currentPage });
   }
 
+  async function downloadAsPDF() {
+    if (!fabricCanvasRef.current) return;
+    
+    const canvas = fabricCanvasRef.current;
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'px',
+      format: [canvas.width, canvas.height]
+    });
+    
+    // Save current page before exporting
+    saveCurrentPageData();
+    
+    // Export each page to PDF
+    for (let i = 0; i < pagesDataRef.current.length; i++) {
+      if (i > 0) {
+        pdf.addPage();
+      }
+      
+      // Temporarily load this page's data
+      canvas.clear();
+      canvas.backgroundColor = '#ffffff';
+      
+      if (pagesDataRef.current[i].objects && pagesDataRef.current[i].objects.length > 0) {
+        isRemoteDrawing.current = true;
+        try {
+          const objects = await util.enlivenObjects(pagesDataRef.current[i].objects);
+          objects.forEach((obj) => canvas.add(obj));
+          canvas.renderAll();
+        } catch (err) {
+          console.error('Error loading page for PDF:', err);
+        }
+        isRemoteDrawing.current = false;
+      }
+      
+      // Convert canvas to image and add to PDF
+      const imgData = canvas.toDataURL('image/png');
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+    }
+    
+    // Restore current page
+    loadPageData(currentPage);
+    
+    // Download PDF
+    pdf.save(`whiteboard-${roomCode}-${Date.now()}.pdf`);
+  }
+  
   function downloadCanvas() {
     if (!fabricCanvasRef.current) return;
     const canvas = fabricCanvasRef.current;
@@ -326,9 +433,85 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
     });
     
     const link = document.createElement('a');
-    link.download = `whiteboard-${roomCode}-${Date.now()}.png`;
+    link.download = `whiteboard-${roomCode}-page${currentPage + 1}-${Date.now()}.png`;
     link.href = dataURL;
     link.click();
+  }
+
+  function saveCurrentPageData() {
+    if (!fabricCanvasRef.current) return;
+    const canvas = fabricCanvasRef.current;
+    pagesDataRef.current[currentPage] = {
+      objects: canvas.toJSON().objects,
+      history: [...drawingHistory]
+    };
+    setPages([...pagesDataRef.current]);
+  }
+  
+  function loadPageData(pageIndex) {
+    if (!fabricCanvasRef.current) return;
+    const canvas = fabricCanvasRef.current;
+    
+    isRemoteDrawing.current = true;
+    canvas.clear();
+    canvas.backgroundColor = '#ffffff';
+    
+    const pageData = pagesDataRef.current[pageIndex];
+    if (pageData && pageData.objects && pageData.objects.length > 0) {
+      util.enlivenObjects(pageData.objects).then((objects) => {
+        objects.forEach((obj) => canvas.add(obj));
+        canvas.renderAll();
+        setDrawingHistory(pageData.history || []);
+        isRemoteDrawing.current = false;
+      }).catch((err) => {
+        console.error('Error loading page:', err);
+        isRemoteDrawing.current = false;
+      });
+    } else {
+      setDrawingHistory([]);
+      canvas.renderAll();
+      isRemoteDrawing.current = false;
+    }
+  }
+  
+  function addNewPage() {
+    saveCurrentPageData();
+    pagesDataRef.current.push({ objects: [], history: [] });
+    setPages([...pagesDataRef.current]);
+    setCurrentPage(pagesDataRef.current.length - 1);
+    loadPageData(pagesDataRef.current.length - 1);
+    
+    // Broadcast page addition
+    socket.emit('whiteboard:page-add', { roomCode, userName, pageCount: pagesDataRef.current.length });
+  }
+  
+  function switchToPage(pageIndex) {
+    if (pageIndex === currentPage || pageIndex < 0 || pageIndex >= pagesDataRef.current.length) return;
+    saveCurrentPageData();
+    setCurrentPage(pageIndex);
+    loadPageData(pageIndex);
+    
+    // Broadcast page switch
+    socket.emit('whiteboard:page-switch', { roomCode, userName, pageNumber: pageIndex });
+  }
+  
+  function deletePage(pageIndex) {
+    if (pagesDataRef.current.length <= 1) {
+      alert('Cannot delete the last page. At least one page is required.');
+      return;
+    }
+    
+    if (!confirm(`Delete page ${pageIndex + 1}? This action cannot be undone.`)) return;
+    
+    pagesDataRef.current.splice(pageIndex, 1);
+    setPages([...pagesDataRef.current]);
+    
+    const newCurrentPage = Math.min(currentPage, pagesDataRef.current.length - 1);
+    setCurrentPage(newCurrentPage);
+    loadPageData(newCurrentPage);
+    
+    // Broadcast page deletion
+    socket.emit('whiteboard:page-delete', { roomCode, userName, pageIndex, pageCount: pagesDataRef.current.length });
   }
 
   const colors = [
@@ -459,14 +642,14 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
               <span className="hidden sm:inline">Undo</span>
             </button>
             <button
-              onClick={downloadCanvas}
-              className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium text-sm min-h-[44px] whitespace-nowrap"
-              title="Download as PNG image"
+              onClick={downloadAsPDF}
+              className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm min-h-[44px] whitespace-nowrap"
+              title="Download all pages as PDF"
             >
               <svg className="w-4 h-4 sm:w-5 sm:h-5 inline sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
               </svg>
-              <span className="hidden sm:inline">Download</span>
+              <span className="hidden sm:inline">PDF</span>
             </button>
             <button
               onClick={clearCanvas}
@@ -478,6 +661,69 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
               <span className="hidden sm:inline">Clear</span>
             </button>
           </div>
+        </div>
+
+        {/* Page Navigation - Mobile Responsive */}
+        <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2 sm:py-3 border-b border-slate-200 bg-white">
+          <button
+            onClick={() => switchToPage(currentPage - 1)}
+            disabled={currentPage === 0}
+            className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition min-h-[44px] min-w-[44px] flex items-center justify-center"
+            title="Previous page"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          
+          <div className="flex items-center gap-2 overflow-x-auto flex-1 px-2">
+            {pagesDataRef.current.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => switchToPage(index)}
+                className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium transition text-xs sm:text-sm min-h-[44px] whitespace-nowrap flex-shrink-0 ${
+                  currentPage === index
+                    ? 'bg-purple-600 text-white shadow-md'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                Page {index + 1}
+              </button>
+            ))}
+          </div>
+          
+          <button
+            onClick={addNewPage}
+            className="p-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition min-h-[44px] min-w-[44px] flex items-center justify-center"
+            title="Add new page"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+          
+          <button
+            onClick={() => switchToPage(currentPage + 1)}
+            disabled={currentPage === pagesDataRef.current.length - 1}
+            className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition min-h-[44px] min-w-[44px] flex items-center justify-center"
+            title="Next page"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+          
+          {pagesDataRef.current.length > 1 && (
+            <button
+              onClick={() => deletePage(currentPage)}
+              className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition min-h-[44px] min-w-[44px] flex items-center justify-center"
+              title="Delete current page"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          )}
         </div>
 
         {/* Canvas - Touch Optimized */}
