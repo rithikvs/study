@@ -30,6 +30,23 @@ body {
   background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
   position: relative;
   overflow-x: hidden;
+  /* Prevent text size adjustment on mobile */
+  -webkit-text-size-adjust: 100%;
+  /* Enable smooth scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile touch target optimization */
+@media (max-width: 640px) {
+  button, a[href], input[type="button"], input[type="submit"], input[type="reset"] {
+    min-height: 44px; /* iOS recommended touch target */
+    min-width: 44px;
+  }
+  
+  /* Prevent zoom on input focus (iOS) */
+  input, textarea, select {
+    font-size: 16px !important;
+  }
 }
 
 body::before {
@@ -65,6 +82,16 @@ body::before {
   }
 }
 
+/* Safe area insets for mobile devices */
+@supports (padding: env(safe-area-inset-top)) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
 /* Glassmorphism effect */
 .glass {
   background: rgba(255, 255, 255, 0.75);
@@ -96,8 +123,20 @@ a, button, input, textarea, select {
   transition: all 0.2s ease-in-out;
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - Mobile Responsive */
 ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+@media (max-width: 640px) {
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+}
+
+::-webkit-scrollbar-old {
   width: 8px;
   height: 8px;
 }

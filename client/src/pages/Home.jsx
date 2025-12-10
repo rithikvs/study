@@ -62,36 +62,36 @@ export default function Home() {
   return (
     <div className="min-h-screen relative">
       <Navbar />
-      <main className="mx-auto max-w-6xl px-4 py-8 fade-in">
-        {/* Hero Section */}
-        <section className="text-center mb-10">
+      <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8 fade-in">
+        {/* Hero Section - Mobile Optimized */}
+        <section className="text-center mb-8 sm:mb-10">
           <div className="inline-block mb-3">
-            <span className="inline-flex items-center px-4 py-2 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 text-white text-sm font-medium">
-              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+            <span className="inline-flex items-center px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 text-white text-xs sm:text-sm font-medium">
+              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
               </svg>
               Real-time Collaboration
             </span>
           </div>
-          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-white mb-4 animate-float">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-white mb-3 sm:mb-4 animate-float">
             StudyHub
           </h1>
-          <p className="text-lg md:text-xl text-white/90 max-w-2xl mx-auto font-light">
+          <p className="text-base sm:text-lg md:text-xl text-white/90 max-w-2xl mx-auto font-light px-4">
             Create group rooms, share notes, collaborate with whiteboards in real-time
           </p>
         </section>
 
-        {/* Single Column Card */}
-        <div className="max-w-xl mx-auto mb-8">
+        {/* Single Column Card - Mobile Optimized */}
+        <div className="max-w-xl mx-auto mb-6 sm:mb-8">
           <section>
-            <div className="glass rounded-2xl p-6 shadow-glow">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="p-2.5 rounded-xl bg-purple-500">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="glass rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-glow">
+              <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5">
+                <div className="p-2 sm:p-2.5 rounded-lg sm:rounded-xl bg-purple-500">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold gradient-text">Create or Join Room</h2>
+                <h2 className="text-lg sm:text-xl font-bold gradient-text">Create or Join Room</h2>
               </div>
               
               {/* Group Name Input */}
@@ -101,24 +101,24 @@ export default function Home() {
                   value={groupName}
                   onChange={(e) => setGroupName(e.target.value)}
                   placeholder="e.g., Operating Systems Unit-2"
-                  className="w-full px-5 py-4 rounded-xl border-2 border-slate-200 focus:border-purple-400 focus:ring-4 focus:ring-purple-400/20 transition-all outline-none text-slate-700 font-medium"
+                  className="w-full px-4 py-3 sm:px-5 sm:py-4 rounded-xl border-2 border-slate-200 focus:border-purple-400 focus:ring-4 focus:ring-purple-400/20 transition-all outline-none text-slate-700 font-medium text-base"
                 />
                 <button
                   onClick={createGroup}
                   disabled={gated || !groupName.trim() || loadingCreate}
-                  className="mt-3 w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 rounded-xl shadow-md hover:shadow-lg disabled:opacity-50 transition flex items-center justify-center gap-2"
+                  className="mt-3 w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3.5 sm:py-3 rounded-xl shadow-md hover:shadow-lg disabled:opacity-50 transition flex items-center justify-center gap-2 text-base min-h-[44px]"
                 >
                   {loadingCreate ? (
                     <>
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      Creating...
+                      <span className="text-base">Creating...</span>
                     </>
                   ) : (
                     <>
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                       </svg>
-                      Create Group
+                      <span className="text-base">Create Group</span>
                     </>
                   )}
                 </button>
@@ -141,25 +141,25 @@ export default function Home() {
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                   placeholder="6-CHARACTER CODE"
-                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-purple-400 focus:ring-4 focus:ring-purple-400/20 transition-all outline-none text-slate-700 font-bold tracking-wider text-center mb-3"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-purple-400 focus:ring-4 focus:ring-purple-400/20 transition-all outline-none text-slate-700 font-bold tracking-wider text-center mb-3 text-base"
                   maxLength={6}
                 />
                 <button
                   onClick={joinGroup}
                   disabled={gated || !joinCode.trim() || loadingJoin}
-                  className="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 rounded-xl shadow-md hover:shadow-lg disabled:opacity-50 transition flex items-center justify-center gap-2"
+                  className="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3.5 sm:py-3 rounded-xl shadow-md hover:shadow-lg disabled:opacity-50 transition flex items-center justify-center gap-2 text-base min-h-[44px]"
                 >
                   {loadingJoin ? (
                     <>
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      Joining...
+                      <span className="text-base">Joining...</span>
                     </>
                   ) : (
                     <>
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                       </svg>
-                      Enter Code
+                      <span className="text-base">Enter Code</span>
                     </>
                   )}
                 </button>
@@ -184,27 +184,27 @@ export default function Home() {
         {/* Show user's joined rooms */}
         {authUser && groups.length > 0 && (
           <section>
-            <div className="flex items-center justify-between mb-4 max-w-5xl mx-auto">
-              <h2 className="text-2xl font-bold text-white">Your Rooms</h2>
+            <div className="flex items-center justify-between mb-4 max-w-5xl mx-auto px-2">
+              <h2 className="text-xl sm:text-2xl font-bold text-white">Your Rooms</h2>
               <span className="text-white/80 text-sm">{groups.length} {groups.length === 1 ? 'room' : 'rooms'}</span>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
               {groups.map((group) => (
                 <Link
                   key={group.roomCode}
                   to={`/room/${group.roomCode}`}
-                  className="glass rounded-2xl p-5 shadow-glow hover:shadow-xl transition group"
+                  className="glass rounded-xl sm:rounded-2xl p-4 sm:p-5 shadow-glow hover:shadow-xl transition group min-h-[100px]"
                 >
                   <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <h3 className="font-bold text-lg text-slate-800 group-hover:text-purple-600 transition">
+                    <div className="flex-1 min-w-0 pr-2">
+                      <h3 className="font-bold text-base sm:text-lg text-slate-800 group-hover:text-purple-600 transition truncate">
                         {group.name}
                       </h3>
                       <span className="inline-block mt-2 px-2.5 py-1 rounded-full bg-purple-400 text-white font-mono font-bold text-xs">
                         {group.roomCode}
                       </span>
                     </div>
-                    <div className="p-2 rounded-lg bg-purple-100 group-hover:bg-purple-500 group-hover:scale-110 transition">
+                    <div className="p-2 rounded-lg bg-purple-100 group-hover:bg-purple-500 group-hover:scale-110 transition flex-shrink-0">
                       <svg className="w-4 h-4 text-purple-600 group-hover:text-white transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>

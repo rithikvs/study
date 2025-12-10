@@ -46,21 +46,21 @@ export default function Auth() {
   return (
     <div className="min-h-screen">
       <Navbar />
-      <main className="mx-auto max-w-md px-4 py-12">
-        <div className="text-center mb-8 animate-fadeIn">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-500 rounded-2xl mb-4">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <main className="mx-auto max-w-md px-4 sm:px-6 py-8 sm:py-12">
+        <div className="text-center mb-6 sm:mb-8 animate-fadeIn">
+          <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-purple-500 rounded-xl sm:rounded-2xl mb-4">
+            <svg className="w-7 h-7 sm:w-8 sm:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold gradient-text mb-2">Welcome to StudyHub</h1>
-          <p className="text-slate-600">Sign in to access your collaborative workspace</p>
+          <h1 className="text-2xl sm:text-3xl font-bold gradient-text mb-2">Welcome to StudyHub</h1>
+          <p className="text-sm sm:text-base text-slate-600 px-4">Sign in to access your collaborative workspace</p>
         </div>
 
-        <div className="glass rounded-2xl p-8 shadow-glow animate-fadeIn" style={{ animationDelay: '100ms' }}>
+        <div className="glass rounded-xl sm:rounded-2xl p-5 sm:p-8 shadow-glow animate-fadeIn" style={{ animationDelay: '100ms' }}>
           <div className="flex gap-2 mb-6 p-1 bg-white/50 rounded-xl">
             <button
-              className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition ${
+              className={`flex-1 px-3 sm:px-4 py-3 sm:py-2.5 rounded-lg font-medium transition text-sm sm:text-base min-h-[44px] ${
                 mode === 'login' 
                   ? 'bg-purple-600 text-white shadow-lg' 
                   : 'text-slate-600 hover:text-slate-800'
@@ -71,11 +71,11 @@ export default function Auth() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                 </svg>
-                Login
+                <span>Login</span>
               </span>
             </button>
             <button
-              className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition ${
+              className={`flex-1 px-3 sm:px-4 py-3 sm:py-2.5 rounded-lg font-medium transition text-sm sm:text-base min-h-[44px] ${
                 mode === 'register' 
                   ? 'bg-purple-600 text-white shadow-lg' 
                   : 'text-slate-600 hover:text-slate-800'
@@ -86,7 +86,7 @@ export default function Auth() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                 </svg>
-                Register
+                <span>Register</span>
               </span>
             </button>
           </div>
@@ -105,7 +105,7 @@ export default function Auth() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Enter your full name"
-                    className="w-full pl-10 pr-4 py-3 bg-white/50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                    className="w-full pl-10 pr-4 py-3 bg-white/50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition text-base"
                     required
                   />
                 </div>
@@ -124,7 +124,7 @@ export default function Auth() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
-                  className="w-full pl-10 pr-4 py-3 bg-white/50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                  className="w-full pl-10 pr-4 py-3 bg-white/50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition text-base"
                   required
                 />
               </div>
@@ -142,7 +142,7 @@ export default function Auth() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter secure password"
-                  className="w-full pl-10 pr-4 py-3 bg-white/50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                  className="w-full pl-10 pr-4 py-3 bg-white/50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition text-base"
                   required
                 />
               </div>
@@ -150,7 +150,7 @@ export default function Auth() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-purple-500 hover:bg-purple-600 text-white font-medium py-3 rounded-xl shadow-md hover:shadow-lg disabled:opacity-50 transition flex items-center justify-center gap-2 mt-6"
+              className="w-full bg-purple-500 hover:bg-purple-600 text-white font-medium py-3.5 rounded-xl shadow-md hover:shadow-lg disabled:opacity-50 transition flex items-center justify-center gap-2 mt-6 text-base min-h-[48px]"
             >
               {loading ? (
                 <>

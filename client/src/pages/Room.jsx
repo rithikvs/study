@@ -223,32 +223,32 @@ export default function Room() {
     <div className="min-h-screen">
       <Navbar />
       
-      <main className="mx-auto max-w-6xl px-4 py-8">
-        <div className="glass rounded-2xl p-6 mb-6 animate-fadeIn">
-          <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
-            <div>
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <main className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
+        <div className="glass rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 animate-fadeIn">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 sm:gap-3 mb-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-500 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
                 </div>
-                <div>
-                  <h1 className="text-3xl font-bold gradient-text">Room: {roomCode}</h1>
-                  <p className="text-slate-600 text-sm">Collaborative workspace for your team</p>
+                <div className="min-w-0">
+                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold gradient-text truncate">Room: {roomCode}</h1>
+                  <p className="text-slate-600 text-xs sm:text-sm">Collaborative workspace for your team</p>
                 </div>
               </div>
               
               {group && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-slate-700">Team Members:</span>
-                  <div className="flex flex-wrap gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <span className="text-xs sm:text-sm font-medium text-slate-700">Team Members:</span>
+                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
                     {group.members?.map((member) => (
-                      <span key={member._id} className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-400 text-white text-xs font-medium rounded-full shadow-sm">
+                      <span key={member._id} className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-3 sm:py-1 bg-purple-400 text-white text-xs font-medium rounded-full shadow-sm">
                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                           <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
                         </svg>
-                        {member.name}
+                        <span className="truncate max-w-[100px]">{member.name}</span>
                       </span>
                     ))}
                   </div>
@@ -256,78 +256,81 @@ export default function Room() {
               )}
             </div>
             
-            <div className="flex flex-wrap gap-2">
-              <button onClick={openNoteModal} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2.5 rounded-xl shadow-md hover:shadow-lg transition flex items-center gap-2 font-medium">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
+              <button onClick={openNoteModal} className="flex-shrink-0 bg-blue-500 hover:bg-blue-600 text-white px-3 sm:px-4 py-2.5 rounded-lg sm:rounded-xl shadow-md hover:shadow-lg transition flex items-center gap-2 font-medium text-sm sm:text-base min-h-[44px] whitespace-nowrap">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                New Note
+                <span className="hidden sm:inline">New Note</span>
+                <span className="sm:hidden">Note</span>
               </button>
               <button
                 onClick={() => setShowWhiteboard(true)}
-                className="bg-violet-500 hover:bg-violet-600 text-white px-4 py-2.5 rounded-xl shadow-md hover:shadow-lg transition flex items-center gap-2 font-medium"
+                className="flex-shrink-0 bg-violet-500 hover:bg-violet-600 text-white px-3 sm:px-4 py-2.5 rounded-lg sm:rounded-xl shadow-md hover:shadow-lg transition flex items-center gap-2 font-medium text-sm sm:text-base min-h-[44px] whitespace-nowrap"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                 </svg>
-                Whiteboard
+                <span className="hidden sm:inline">Whiteboard</span>
+                <span className="sm:hidden">Board</span>
               </button>
-              <label className="bg-green-500 hover:bg-green-600 text-white px-4 py-2.5 rounded-xl shadow-md hover:shadow-lg transition cursor-pointer flex items-center gap-2 font-medium">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <label className="flex-shrink-0 bg-green-500 hover:bg-green-600 text-white px-3 sm:px-4 py-2.5 rounded-lg sm:rounded-xl shadow-md hover:shadow-lg transition cursor-pointer flex items-center gap-2 font-medium text-sm sm:text-base min-h-[44px] whitespace-nowrap">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
-                {uploading ? 'Uploading...' : 'Upload File'}
+                <span>{uploading ? 'Uploading...' : 'Upload'}</span>
                 <input type="file" onChange={handleFileUpload} className="hidden" disabled={uploading} accept=".pdf,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.webp" />
               </label>
               {isRoomCreator && (
                 <button 
                   onClick={deleteRoom} 
-                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2.5 rounded-xl shadow-md hover:shadow-lg transition flex items-center gap-2 font-medium"
+                  className="flex-shrink-0 bg-red-500 hover:bg-red-600 text-white px-3 sm:px-4 py-2.5 rounded-lg sm:rounded-xl shadow-md hover:shadow-lg transition flex items-center gap-2 font-medium text-sm sm:text-base min-h-[44px] whitespace-nowrap"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
-                  Delete Room
+                  <span className="hidden sm:inline">Delete Room</span>
+                  <span className="sm:hidden">Delete</span>
                 </button>
               )}
             </div>
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs - Mobile Responsive */}
         <div className="glass rounded-xl p-1 flex gap-1 animate-fadeIn" style={{ animationDelay: '100ms' }}>
           <button
             onClick={() => setActiveTab('notes')}
-            className={`flex-1 px-6 py-3 rounded-lg font-medium transition flex items-center justify-center gap-2 ${
+            className={`flex-1 px-3 sm:px-6 py-2.5 sm:py-3 rounded-lg font-medium transition flex items-center justify-center gap-1.5 sm:gap-2 text-sm sm:text-base min-h-[44px] ${
               activeTab === 'notes' 
                 ? 'bg-blue-500 text-white shadow-lg' 
                 : 'text-slate-700 hover:bg-white/50'
             }`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            Notes ({notes.length})
+            <span>Notes ({notes.length})</span>
           </button>
           <button
             onClick={() => setActiveTab('files')}
-            className={`flex-1 px-6 py-3 rounded-lg font-medium transition flex items-center justify-center gap-2 ${
+            className={`flex-1 px-3 sm:px-6 py-2.5 sm:py-3 rounded-lg font-medium transition flex items-center justify-center gap-1.5 sm:gap-2 text-sm sm:text-base min-h-[44px] ${
               activeTab === 'files' 
                 ? 'bg-purple-500 text-white shadow-lg' 
                 : 'text-slate-700 hover:bg-white/50'
             }`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
             </svg>
-            Files ({files.length})
+            <span>Files ({files.length})</span>
           </button>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6">
+        <div className="mt-4 sm:mt-6 grid grid-cols-1 lg:grid-cols-[280px_1fr] xl:grid-cols-[320px_1fr] gap-4 sm:gap-6">
           {activeTab === 'notes' ? (
             <>
-              <aside className="glass rounded-2xl p-5 overflow-auto h-[65vh] animate-fadeIn" style={{ animationDelay: '200ms' }}>
+              <aside className="glass rounded-xl sm:rounded-2xl p-4 sm:p-5 overflow-auto h-[40vh] lg:h-[65vh] animate-fadeIn" style={{ animationDelay: '200ms' }}>
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
                     <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
