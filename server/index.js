@@ -215,16 +215,46 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('whiteboard:draw', ({ roomCode, pathData, userName }) => {
+  socket.on('whiteboard:draw', ({ roomCode, pathData, pageId, userName }) => {
     try {
       if (!roomCode || !pathData) return;
       
       const whiteboardRoom = `whiteboard:${roomCode}`;
       
       // Broadcast drawing to all other users in the room
-      socket.to(whiteboardRoom).emit('whiteboard:draw', { pathData, userName });
+      socket.to(whiteboardRoom).emit('whiteboard:draw', { pathData, pageId, userName });
     } catch (err) {
       console.error('whiteboard:draw error', err);
+    }
+  });
+
+  socket.on('whiteboard:add-page', ({ roomCode, pageId }) => {
+    try {
+      if (!roomCode || !pageId) return;
+      
+      const whiteboardRoom = `whiteboard:${roomCode}`;
+      
+      console.log(`📄 New page added to whiteboard ${roomCode}: ${pageId}`);
+      
+      // Broadcast new page to all other users in the room
+      socket.to(whiteboardRoom).emit('whiteboard:add-page', { pageId });
+    } catch (err) {
+      console.error('whiteboard:add-page error', err);
+    }
+  });
+
+  socket.on('whiteboard:delete-page', ({ roomCode, pageId, userName }) => {
+    try {
+      if (!roomCode || !pageId) return;
+      
+      const whiteboardRoom = `whiteboard:${roomCode}`;
+      
+      console.log(`🗑️ ${userName} deleted page ${pageId} from whiteboard ${roomCode}`);
+      
+      // Broadcast page deletion to all other users in the room
+      socket.to(whiteboardRoom).emit('whiteboard:delete-page', { pageId });
+    } catch (err) {
+      console.error('whiteboard:delete-page error', err);
     }
   });
 
@@ -243,18 +273,33 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('whiteboard:undo', ({ roomCode, userName }) => {
+  socket.on('whiteboard:undo', ({ roomCode, pageId, userName }) => {
     try {
       if (!roomCode) return;
       
       const whiteboardRoom = `whiteboard:${roomCode}`;
       
-      console.log(`↩️ ${userName} undid last stroke in whiteboard ${roomCode}`);
+      console.log(`↩️ ${userName} undid last stroke in whiteboard ${roomCode} on page ${pageId}`);
       
       // Broadcast undo to all other users in the room
-      socket.to(whiteboardRoom).emit('whiteboard:undo', { userName });
+      socket.to(whiteboardRoom).emit('whiteboard:undo', { pageId, userName });
     } catch (err) {
       console.error('whiteboard:undo error', err);
+    }
+  });
+
+  socket.on('whiteboard:redo', ({ roomCode, pageId, pathData, userName }) => {
+    try {
+      if (!roomCode) return;
+      
+      const whiteboardRoom = `whiteboard:${roomCode}`;
+      
+      console.log(`↪️ ${userName} redid stroke in whiteboard ${roomCode} on page ${pageId}`);
+      
+      // Broadcast redo to all other users in the room
+      socket.to(whiteboardRoom).emit('whiteboard:redo', { pageId, pathData, userName });
+    } catch (err) {
+      console.error('whiteboard:redo error', err);
     }
   });
 

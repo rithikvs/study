@@ -4,8 +4,9 @@ import socket from '../lib/socket';
 import api from '../lib/api';
 
 export default function Whiteboard({ roomCode, userName, onClose }) {
-  const canvasRef = useRef(null);
-  const fabricCanvasRef = useRef(null);
+  const containerRef = useRef(null);
+  const canvasRefs = useRef([]);
+  const fabricCanvasRefs = useRef([]);
   const [color, setColor] = useState('#000000');
   const [brushSize, setBrushSize] = useState(2);
   const [tool, setTool] = useState('pen'); // 'pen' or 'eraser'
@@ -14,6 +15,8 @@ export default function Whiteboard({ roomCode, userName, onClose }) {
   const isRemoteDrawing = useRef(false);
   const saveTimeoutRef = useRef(null);
   const [drawingHistory, setDrawingHistory] = useState([]);
+  const [pages, setPages] = useState([{ id: 1, canvasData: null }]);
+  const [currentPage, setCurrentPage] = useState(0);
 
   useEffect(() => {
     if (!canvasRef.current) return;

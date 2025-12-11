@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import FileViewerReadOnly from '../components/FileViewerReadOnly';
-import Whiteboard from '../components/Whiteboard';
+import Whiteboard from '../components/WhiteboardMultiPage';
 import api from '../lib/api';
 import socket from '../lib/socket';
 import { useApp } from '../context/AppContext';
